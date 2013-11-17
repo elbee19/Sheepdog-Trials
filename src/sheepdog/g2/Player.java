@@ -21,7 +21,7 @@ public class Player extends sheepdog.sim.Player {
         	firstCall=false;
         	activePlayer=new OneDogPlayer();
         }
-    	
+
     	return activePlayer.move(dogs, sheeps);
     }
 
