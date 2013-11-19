@@ -5,6 +5,8 @@ public abstract class Player {
 
     public Player() {}
     
+    public abstract void init(int nblacks, boolean mode);
+    
     // Return: the next position
     // my position: dogs[id-1]
     public abstract Point move(Point[] dogs, // positions of dogs

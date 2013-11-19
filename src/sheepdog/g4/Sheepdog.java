@@ -1,17 +1,22 @@
-package sheepdog.sim;
+package sheepdog.g4;
 
 // general utilities
 import java.io.*;
 import java.util.List;
 import java.util.*;
+
 import javax.tools.*;
+
 import java.util.concurrent.*;
 import java.net.URL;
+
+import sheepdog.sim.Point;
 
 // gui utility
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
+
 import javax.swing.*;
 
 enum PType {
@@ -77,69 +82,9 @@ public class Sheepdog
 
   	// compile and load players dynamically
     //
-	static Player loadPlayer(String group) {
-        try {
-            // get tools
-            URL url = Sheepdog.class.getProtectionDomain().getCodeSource().getLocation();
-            // use the customized reloader, ensure clearing all static information
-            ClassLoader loader = new ClassReloader(url, Sheepdog.class.getClassLoader());
-            if (loader == null) throw new Exception("Cannot load class loader");
-            JavaCompiler compiler = null;
-            StandardJavaFileManager fileManager = null;
-            // get separator
-            String sep = File.separator;
-            // load players
-            // search for compiled files
-            File classFile = new File(ROOT_DIR + sep + group + sep + "Player.class");
-            System.err.println(classFile.getAbsolutePath());
-            if (!classFile.exists() || recompile) {
-                // delete all class files
-                List <File> classFiles = directoryFiles(ROOT_DIR + sep + group, ".class");
-                System.err.print("Deleting " + classFiles.size() + " class files...   ");
-                for (File file : classFiles)
-                    file.delete();
-                System.err.println("OK");
-                if (compiler == null) compiler = ToolProvider.getSystemJavaCompiler();
-                if (compiler == null) throw new Exception("Cannot load compiler");
-                if (fileManager == null) fileManager = compiler.getStandardFileManager(null, null, null);
-                if (fileManager == null) throw new Exception("Cannot load file manager");
-                // compile all files
-                List <File> javaFiles = directoryFiles(ROOT_DIR + sep + group, ".java");
-                System.err.print("Compiling " + javaFiles.size() + " source files...   ");
-                Iterable<? extends JavaFileObject> units = fileManager.getJavaFileObjectsFromFiles(javaFiles);
-                boolean ok = compiler.getTask(null, fileManager, null, null, null, units).call();
-                if (!ok) throw new Exception("Compile error");
-                System.err.println("OK");
-            }
-            // load class
-            System.err.print("Loading player class...   ");
-            Class playerClass = loader.loadClass(ROOT_DIR + "." + group + ".Player");
-            System.err.println("OK");
-            // set name of player and append on list
-            Player player = (Player) playerClass.newInstance();
-            if (player == null)
-                throw new Exception("Load error");
-            else
-                return player;
-
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-            return null;
-        }
-
-	}
 
 
-    static Player[] loadPlayers(String group, int ndogs) {
-        Player[] players = new Player[ndogs];
-        for (int i = 0; i < ndogs; ++i) {
-            Player p = loadPlayer(group);
-            p.id = i + 1; // set the dog id
-            players[i] = p;
-        }
-        return players;
-    }
-
+  
     // generate a random position on the given side
     static Point randomPosition(int side) {
         Point point = new Point();
@@ -607,63 +552,25 @@ public class Sheepdog
     }
 
 
-    Sheepdog(Player[] players, int nsheeps, int nblacks, boolean mode)
+    Sheepdog(int players, int nsheeps, int nblacks, boolean mode)
     {
-        this.players = players;
-        this.ndogs = players.length;
+        //this.players = players;
+        this.ndogs = players;
         this.nsheeps = nsheeps;
         this.nblacks = nblacks;
         this.mode = mode;
 
-        // print config
+        /*// print config
         System.err.println("##### Game config #####");
         System.err.println("Dogs: " + players.length);
         System.err.println("Sheeps: " + nsheeps);
         System.err.println("Blacks: " + nblacks);
         System.err.println("Mode: " + mode);
         System.err.println("##### end of config #####");
+        */
     }
 
-    
-	public static void main(String[] args) throws Exception
-	{
-        // game parameters
-        String group = null;
-        int ndogs = DEFAULT_DOGS; // d
-        int nsheeps = DEFAULT_SHEEPS; // S
-        int nblacks = DEFAULT_BLACKS; // B
-        boolean mode = DEFAULT_MODE; // basic or advance?
-
-        if (args.length > 0)
-            group = args[0];
-        if (args.length > 1)
-            ndogs = Integer.parseInt(args[1]);
-        if (args.length > 2)
-            nsheeps = Integer.parseInt(args[2]);
-        if (args.length > 3)
-            nblacks = Integer.parseInt(args[3]);
-        if (args.length > 4)
-            mode = Boolean.parseBoolean(args[4]);
-        if (args.length > 5)
-            gui = Boolean.parseBoolean(args[5]);
-
-        // load players
-        Player[] players = loadPlayers(group, ndogs);
-        
-        // create game
-        Sheepdog game = new Sheepdog(players, nsheeps, nblacks, mode);
-        // init game
-        game.init();
-        // play game
-        if (gui) {
-            game.playgui();
-        }
-        else {
-            game.play();
-        }
-
-    }        
-
+  
     // players
     Player[] players;
     // dog positions
