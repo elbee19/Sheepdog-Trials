@@ -4,12 +4,15 @@ public class Player extends sheepdog.sim.Player {
     private int nblacks;
     private boolean mode;
     private Fetch fetch;
+    private Sweep sweep;
+
     public void init(int nblacks, boolean mode) {
         this.nblacks = nblacks;
         this.mode = mode;
         fetch = new Fetch(id, nblacks, mode);
+        sweep = new Sweep(id, nblacks, mode);
     }
-    
+
     // Return: the next position
     // my position: dogs[id-1]
     public sheepdog.sim.Point move(sheepdog.sim.Point[] posDogs, // positions of dogs
@@ -24,14 +27,17 @@ public class Player extends sheepdog.sim.Player {
         for (int i = 0; i < numSheeps; i++) {
             sheeps[i] = new Point(posSheeps[i]);
         }
+
+
         // condition to use strategy should be put here
         Point moveTo;
-        if (true) {
+        if (dogs.length <=2) {
             moveTo = fetch.move(dogs, sheeps);
-            System.out.print(fetch.toString());
-            System.out.print(moveTo.toString());
+            System.out.println("\n" + fetch.toString());
+        } else {
+            moveTo = sweep.move(dogs, sheeps);
+            System.out.println("\n" + sweep.toString());
         }
         return moveTo.toSimPoint();
     }
-
 }

@@ -100,7 +100,7 @@ public class OneOnOnePlayer extends sheepdog.sim.Player {
 	
 	public void moveTowardsDestination(boolean extend, Point currPos)
 	{
-		moveTowardsDestination(extend, currPos, 2.0);
+		moveTowardsDestination(extend, currPos, 1.99);
 	}
 	
 	public void moveTowardsDestination(boolean extend, Point currPos, double hopDistance)

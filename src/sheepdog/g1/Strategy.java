@@ -1,7 +1,10 @@
 package sheepdog.g1;
 import sheepdog.sim.Point;
 import sheepdog.sim.Sheepdog;
+
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
 
 public class Strategy{
 	
@@ -11,7 +14,7 @@ public class Strategy{
 	private int numDog;
 	private int numSheep;
 	private int strategy;
-	public boolean[] strategySteps;
+	public Queue<Formation> steps;
 	private boolean initSteps;
 	private int stepsIter;
 	
@@ -27,8 +30,8 @@ public class Strategy{
 		this.dog = dog;
 		this.sheep = sheep;
 		this.strategy = strategy;
-		numDog = dog.length;
-		numSheep = dog.length;
+		this.numDog = dog.length;
+		this.numSheep = sheep.length;
 		initSteps = true;
 		stepsIter = 0;
 	}
@@ -36,6 +39,8 @@ public class Strategy{
 	public void updateInfo(Point[] dog, Point[] sheep){
 		this.dog = dog;
 		this.sheep = sheep;
+		this.numDog = dog.length;
+		this.numSheep = sheep.length;
 	}
 	
 	public Point getDogPos(int id){
@@ -53,7 +58,52 @@ public class Strategy{
 	
 	//Effective for large numbers of sheeps to herd.
 	public void strategyOne() {
+		Formation exec = null;
+		if(initSteps) {
+			steps = new LinkedList<Formation>();
+
+			//Check boolean
+			double spacing = (numDog/2)*2.5;
+				if(spacing > 50)
+					spacing = 50;
+
+			int sweeps = (int)Math.ceil(50./spacing);
+
+			//dot
+			steps.add(new Formation(new double[]{50.0, 50.0}, Formation.Dot, dog, 20.0));
+			
+			//Sandwich
+			for(int i=0; i<sweeps-1; i++){
+				steps.add(new Formation(new double[]{100.0, spacing, 50. + i*spacing}, Formation.Sandwich, dog, 20.0));
+				steps.add(new Formation(new double[]{4.0, spacing, 50. + i*spacing}, Formation.Sandwich, dog, 2.0));
+			}
+
+			steps.add(new Formation(new double[]{100.0, spacing, 100 - spacing}, Formation.Sandwich, dog, 20.0));
+			steps.add(new Formation(new double[]{4.0, spacing, 100 - spacing}, Formation.Sandwich, dog, 2.0));
+			
+			//VPusher -> Vertical Line
+			steps.add(new Formation(new double[]{100.0}, Formation.VPusher, dog, 20.0));
+			steps.add(new Formation(new double[]{50. + numDog -2}, Formation.VPusher, dog, 2.0));
+			steps.add(new Formation(new double[]{50.0, 50 - spacing/2, spacing}, Formation.Vertical, dog, 1.0));
+			initSteps = false;
+		}
 		
+		if( (exec = steps.peek()) == null)
+			return;
+		
+		double speed = 1.0;
+		double offset = 0.0;
+		
+		if(!exec.isDone())
+			newDog = exec.getMove(dog);
+		else {
+			steps.remove();
+			
+			if(steps.peek() == null)
+				initSteps = true;
+		}
+		
+		/*
 		if(initSteps) {
 			stepsIter = 0;
 			strategySteps = new boolean[7];
@@ -61,9 +111,7 @@ public class Strategy{
 				strategySteps[i] = false;
 			initSteps = false;
 		}
-		
-		double speed = 0.0;
-		double offset = 0.0;
+
 		//Formation Zero
 		Formation zero = new Formation(50.0, 0, dog);
 		if(!strategySteps[0] && !zero.isDone()) {
@@ -156,5 +204,7 @@ public class Strategy{
 		
 		if(strategySteps[6])
 			initSteps = true;
+			
+		*/
 	}
 }

@@ -12,7 +12,9 @@ public class Player extends sheepdog.sim.Player  {
   public void init(int nblacks, boolean mode) {
     mNblacks = nblacks;
     mMode = mode;
-    mBrain = new StraightLineBrain(id, mode, nblacks);
+//    mBrain = new StraightLineBrainGap(id, mode, nblacks);
+//    mBrain = new StraightLineBrainFar(id, mode, nblacks);
+    mBrain = new StraightLineBrainMe(id, mode, nblacks);
   }
 
   @Override

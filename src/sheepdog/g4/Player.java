@@ -25,6 +25,12 @@ public class Player extends sheepdog.sim.Player {
                       Point[] sheeps) { // positions of the sheeps
     	
     	sheeps=updateToNewSheep(sheeps,dogs);
+
+        sheeps = Util.sortByAngle(sheeps);
+
+        sheeps=Util.currentDogTargets(sheeps, id, dogs.length);
+
+        //System.out.println("Number of sheeps assigned" + sheeps.length);
     	
         move_num++;
         this.sheeps=sheeps;
@@ -32,13 +38,13 @@ public class Player extends sheepdog.sim.Player {
         int [] father = null;
         distanceInTree=new double[sheeps.length];
 
-        if(move_num<26)
-        {
-            
+        if(dogs[id-1].x<50.0)
+        {            
             dogs[id-1]=initial_dog_move(dogs[id-1]);
-
         }
-        if(dogs[id-1].x>=50){
+
+
+        else if(dogs[id-1].x>=50.0){
         	father=myTree.buildTree(sheeps);
             print_array(father);
             findDistanceInTree(father, -1 , 0.0);
@@ -51,7 +57,7 @@ public class Player extends sheepdog.sim.Player {
 			
             if(sheepid!=-1 && father[sheepid]!=-1 && distance(sheeps[sheepid], sheeps[father[sheepid]])<1){
             	sheepid=father[sheepid];
-            	System.out.println("worked!!!");
+            	//System.out.println("worked!!!");
             }
             
             
@@ -65,9 +71,9 @@ public class Player extends sheepdog.sim.Player {
             Point dogPoint = positionDogNearSheep(fromPoint, toPoint, 1.99);
             //Point dogPoint = positionDogNearSheep(toPoint, fromPoint, 0.5);
             
-            System.out.println("from "+fromPoint.x+" "+fromPoint.y);
+            /*System.out.println("from "+fromPoint.x+" "+fromPoint.y);
             System.out.println("to "+toPoint.x+" "+toPoint.y);
-            System.out.println("dog point "+dogPoint.x+" "+dogPoint.y);
+            System.out.println("dog point "+dogPoint.x+" "+dogPoint.y);*/
             
             Point motion=new Point(dogPoint.x-dogs[id-1].x, dogPoint.y-dogs[id-1].y);
             double motionDist=vectorLengthPoint(motion);
@@ -162,19 +168,26 @@ public class Player extends sheepdog.sim.Player {
     }
     
     static Point initial_dog_move(Point dog){
-
             double dist_from_gate=distance(gate, dog);
-
             double move_distance=dist_from_gate;
 
-            if(dist_from_gate<DOG_SPEED)
+            double speed=1.9;
+
+            if(dist_from_gate<=speed)
 
                 move_distance=dist_from_gate;
             else
+                move_distance=speed;
 
-                move_distance=DOG_SPEED;
+            double x_new = dog.x + (move_distance)*(gate.x-dog.x)/dist_from_gate;
 
-            dog.x+=move_distance;
+            double y_new = dog.y + (move_distance)*(gate.y-dog.y)/dist_from_gate;
+
+            double temp_distance=distance(new Point(x_new, y_new), dog );
+
+            dog.x=x_new;
+
+            dog.y=y_new;
 
             return dog;
             

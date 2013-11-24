@@ -22,41 +22,36 @@ public class Fetch extends Strategy {
     public Point move(Point[] dogs, Point[] sheeps) {
         Point current = dogs[id-1];
         switch (stage) {
-        case MOVETOGATE:
-            // case: already there or in the right hand side
-            if (current.x >= PlayerUtils.GATE.x) {
-                stage = FetchStage.MOVETOSHEEP;
-                return move(dogs, sheeps);
-            }
-            return PlayerUtils.moveDogTo(current, PlayerUtils.GATE);
-        case MOVETOSHEEP:
-        case CHASEBACK:
-            if (current.x < PlayerUtils.GATE.x) {
-                stage = FetchStage.PUSHIN;
-            }
-            // find one sheep
-            if (targetSheepId == -1)
-            {
-                targetSheepId = PlayerUtils.findASheep(sheeps);
-                System.out.println(
-                	String.format("sheep found=%d at %f,%f",targetSheepId,sheeps[targetSheepId].x,sheeps[targetSheepId].y)
-                		);
-            }
-            // no sheep to fetch - stay still
-            if (targetSheepId == -1)
-                return current;
-            targetSheepPoint =
-                PlayerUtils.PredictNextMove(targetSheepId, dogs, sheeps);
-            targetDogPoint =
-                PlayerUtils.getTargetDogPoint(targetSheepPoint);
-            return PlayerUtils.moveDogTo(current, targetDogPoint);
-        case PUSHIN:
-            targetSheepPoint =
-                PlayerUtils.PredictNextMove(targetSheepId, dogs, sheeps);
-            targetDogPoint =
-                PlayerUtils.getTargetDogPoint(targetSheepPoint);
-            init();            
-            return PlayerUtils.moveDogTo(current, targetDogPoint);
+            case MOVETOGATE:
+                // case: already there or in the right hand side
+                if (current.x >= PlayerUtils.GATE.x) {
+                    stage = FetchStage.MOVETOSHEEP;
+                    return move(dogs, sheeps);
+                }
+                return PlayerUtils.moveDogTo(current, PlayerUtils.GATE);
+            case MOVETOSHEEP:
+            case CHASEBACK:
+                if (current.x < PlayerUtils.GATE.x) {
+                    stage = FetchStage.PUSHIN;
+                }
+                // find one sheep
+                if (targetSheepId == -1)
+                    targetSheepId = PlayerUtils.findASheep(sheeps);
+                // no sheep to fetch - stay still
+                if (targetSheepId == -1)
+                    return current;
+                targetSheepPoint =
+                    PlayerUtils.PredictNextMove(targetSheepId, dogs, sheeps);
+                targetDogPoint =
+                    PlayerUtils.getTargetDogPoint(targetSheepPoint);
+                return PlayerUtils.moveDogTo(current, targetDogPoint);
+            case PUSHIN:
+                targetSheepPoint =
+                    PlayerUtils.PredictNextMove(targetSheepId, dogs, sheeps);
+                targetDogPoint =
+                    PlayerUtils.getTargetDogPoint(targetSheepPoint);
+                init();            
+                return PlayerUtils.moveDogTo(current, targetDogPoint);
         }
         return new Point();
     }

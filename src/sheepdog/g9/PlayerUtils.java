@@ -5,6 +5,8 @@ public class PlayerUtils {
     // abuse for constants too
     public static final Point GATE = new Point(50, 50);
     public static final double DIMENSION = 100;
+    public static final double HEIGHT = 100;
+    public static final double WIDTH = 50;
 
     public static double GATEOPENLEFT = 49; // left side of center openning
     public static double GATEOPENRIGHT = 51; // right side of center opening
@@ -27,6 +29,7 @@ public class PlayerUtils {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
+    // move dog from "from" to "to"
     public static Point moveDogTo(Point from, Point to) {
         double dx = to.x - from.x;
         double dy = to.y - from.y;
@@ -45,6 +48,28 @@ public class PlayerUtils {
         } 
     }
 
+    // move dog from "from" to "to"
+    public static Point moveDogToWithSpeed(Point from, Point to, double dogspeed) {
+        double dx = to.x - from.x;
+        double dy = to.y - from.y;
+        double d = vectorLength(dx, dy);
+        if (d <= dogspeed * TIMEUNIT)
+            return to;
+        else {
+            double scale = (dogspeed * TIMEUNIT - SMALLDISTANCE)/ d;
+            double x = from.x + scale * dx;
+            double y = from.y + scale * dy;
+            if (x > 100)
+                x = 100;
+            if (y > 100)
+                y = 100;
+            return new Point(x, y);
+        } 
+    }
+
+
+
+    // pick a sheep closest to the gate
     public static int findASheep(Point[] sheeps) {
         int minsheep = -1;
         double mindist = Double.MAX_VALUE;
@@ -84,6 +109,7 @@ public class PlayerUtils {
                          (a.y-b.y) * (a.y-b.y));
     }
 
+    // pick a closest dog for a particular sheep
     static Point getClosestDog(int sheepId, Point[] dogs, Point[] sheeps) {
         int mindog = -1;
         double mindist = Double.MAX_VALUE;
@@ -97,6 +123,8 @@ public class PlayerUtils {
         return dogs[mindog];
     }
     
+
+    // move a sheep according to the positions of dogs
     static Point moveSheep(int sheepId, Point[] dogs, Point[] sheeps) {
         Point thisSheep = sheeps[sheepId];
         double dspeed = 0;

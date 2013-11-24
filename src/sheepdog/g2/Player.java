@@ -24,10 +24,12 @@ public class Player extends sheepdog.sim.Player {
         {
         	firstCall=false;
         	
-        	if(dogs.length==1)
+        	/*if(dogs.length==1)
         		activePlayer=new OneDogPlayer();
         	else
-        		activePlayer=new OneOnOnePlayer();
+        		activePlayer=new OneOnOnePlayer();*/
+        	
+        	activePlayer=new ImprovedPlayer();
         	
         	activePlayer.id=this.id;
         }

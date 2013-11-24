@@ -1,26 +1,23 @@
 package sheepdog.g3;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 
 import sheepdog.g3.Calculator.SIDE;
 import sheepdog.sim.Point;
 
-public class StraightLineBrain extends sheepdog.g3.DogBrain{
+public abstract class StraightLineBrain extends sheepdog.g3.DogBrain{
 
-    private double DOG_SHEEP_MIN_DIST = 1; //TODO: tune parameter
+    private double DOG_SHEEP_MIN_DIST = 1; 
     private static final double SHEEP_RUN_SPEED = 1.000;
     private static final double SHEEP_WALK_SPEED = 0.100;
+    protected static final Point GAP = new Point(50, 50);
     int prevClosestSheep = -1;
     boolean prevWhichSheep = true;
     public StraightLineBrain(int id, boolean advanced, int nblacks) {
         super(id,advanced,nblacks);
-    }
-
-    // Returns the center of the gap in the fence
-    public Point getGapCoordinates()
-    {
-        Point gap = new Point(50,50);
-        return gap;
     }
 
     // Returns a new position of dog
@@ -31,17 +28,18 @@ public class StraightLineBrain extends sheepdog.g3.DogBrain{
         //If dog on the left side of fence, move dog towards the gap
         if(Calculator.getSide(dogs[mId].x) == SIDE.WHITE_GOAL_SIDE)
         {
-            return Calculator.getMoveTowardPoint(me, getGapCoordinates());
+            return Calculator.getMoveTowardPoint(me, GAP);
         }
         else {
-            Point gap = getGapCoordinates();
             ArrayList<Integer> undeliveredIndices = Calculator.undeliveredWhiteSheep(sheeps);
-            int chosenSheepIndex = getClosestSheepToPoint(sheeps, gap, undeliveredIndices);
-            Point targetSheep = sheeps[chosenSheepIndex];
             
+            int chosenSheepIndex = chooseSheep(dogs, sheeps, undeliveredIndices);
+
+            
+            Point targetSheep = sheeps[chosenSheepIndex];
             targetSheep = anticipateSheepMovement(me, targetSheep); 
             
-            double angleGapToSheep = Calculator.getAngleOfTrajectory(gap, targetSheep);
+            double angleGapToSheep = Calculator.getAngleOfTrajectory(GAP, targetSheep);
             Point idealLocation = Calculator.getMoveInDirection(targetSheep, angleGapToSheep, DOG_SHEEP_MIN_DIST);
             Point moveLocation = Calculator.getMoveTowardPoint(me, idealLocation);
             makePointValid(moveLocation);
@@ -49,6 +47,8 @@ public class StraightLineBrain extends sheepdog.g3.DogBrain{
         }
 
     }
+
+    protected abstract int chooseSheep(Point[] dogs, Point[] sheeps, ArrayList<Integer> undeliveredIndices);
 
     private Point anticipateSheepMovement(Point me, Point targetSheep) {
         double angleDogToSheep = Calculator.getAngleOfTrajectory(me, targetSheep);
@@ -60,19 +60,16 @@ public class StraightLineBrain extends sheepdog.g3.DogBrain{
         }
         return targetSheep;
     }
-
-    private int getClosestSheepToPoint(Point[] sheeps, Point pt,
-            ArrayList<Integer> sheepToCheck) {
-        int closestSheepToPoint = sheepToCheck.get(0);
-        double minDistance = Calculator.dist(sheeps[closestSheepToPoint], pt);
-        for (Integer sheepIndex : sheepToCheck) {
-            double distance = Calculator.dist(sheeps[sheepIndex], pt);
-            if (distance <= minDistance) {
-                closestSheepToPoint = sheepIndex;
-                minDistance = distance;
+    
+    protected ArrayList<Integer> getDistanceSortedIndices(final Point[] sheeps, final Point pt, ArrayList<Integer> sheepToCheck ) {
+        Collections.sort(sheepToCheck, new Comparator<Integer>() {
+            @Override
+            public int compare(Integer arg0, Integer arg1) {
+                return (int) Math.signum(Calculator.dist(sheeps[arg0], pt) - Calculator.dist(sheeps[arg1], pt));
             }
-        }
-        return closestSheepToPoint;
+            
+        });
+        return sheepToCheck;
     }
 
     @Override

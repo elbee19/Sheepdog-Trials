@@ -25,6 +25,6 @@ public class Point {
     }
 
     public String toString() {
-        return String.format("x = %f, y = %f\n", x, y);
+        return String.format("x = %f, y = %f", x, y);
     }
 }
