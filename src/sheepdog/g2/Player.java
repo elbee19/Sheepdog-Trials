@@ -29,7 +29,7 @@ public class Player extends sheepdog.sim.Player {
         	else
         		activePlayer=new OneOnOnePlayer();*/
         	
-        	activePlayer=new ImprovedPlayer();
+        	activePlayer=new ImprovedPlayerOld();
         	
         	activePlayer.id=this.id;
         }

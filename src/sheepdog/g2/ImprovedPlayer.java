@@ -1,6 +1,8 @@
 package sheepdog.g2;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 import sheepdog.sim.Point;
@@ -10,9 +12,9 @@ public class ImprovedPlayer extends sheepdog.sim.Player {
 	//Constants
 	private final Point gatePoint=new Point(50,50);
 	private final double epsilon=0.01;
-	private final int stepsToPursue=1;
+	private final int stepsToPursue=4;
 	private int tooCloseThreshold;
-	
+	private final double initialRadius=1000.0;
 	//Bookkeeping
 	Point currDestination;
 	State currState;
@@ -55,21 +57,53 @@ public class ImprovedPlayer extends sheepdog.sim.Player {
 			
 			if(distance(dogs[this.id-1],gatePoint)<=epsilon)
 			{
-				System.out.println("State change to: ALIGNDOG");
-				this.currState=State.MANIPULATESHEEP;
+				System.out.println("State change to: BRING_SHEEP_IN");
+				this.currState=State.BRING_SHEEP_IN;
 			}
 		}
-		
-		else if(currState == State.MANIPULATESHEEP){
-			//pursue for no of ticks and then continue
+		else if(currState == State.BRING_SHEEP_IN){
 			
+			boolean[] sheepsForThisDog=mapSheep2(dogs,sheeps);
+			
+			int minAngleSheepReturns=minAngleSheep(sheeps,sheepsForThisDog);
+			println("!! Minanglesheep="+minAngleSheepReturns);
+			
+			if(sheepFocus == -1)
+			{
+				System.out.println("State change to: PUSH_SHEEP");
+				this.currState=State.PUSH_SHEEP;
+			}
+			
+			else
+			{
+				println("!! Manipulating at index="+sheepFocus);
+				manipulateSheep(sheeps[sheepFocus], dogs[this.id-1]);
+			}
+			
+		}
+		if(currState == State.PUSH_SHEEP){
+			
+			boolean[] sheepsForThisDog=mapSheep2(dogs,sheeps);
+			
+			//pursue for no of ticks and then continue
 			//Find sheep with minimum distGate-distToSheep
 			if(stepsPursued==0)
-				selectSheep(sheeps, dogs[this.id-1]); //sets sheepFocus
+			{
+				selectSheep(sheeps , dogs[this.id-1], sheepsForThisDog); //sets sheepFocus
+				
+				while(sheepFocus==-1)
+				{
+					int otherDogId=r.nextInt(dogs.length);
+					
+					sheepsForThisDog=mapSheep2(dogs,sheeps,otherDogId);
+					selectSheep(sheeps , dogs[otherDogId], sheepsForThisDog);
+				}
+			}
 			
 			println(String.format("selected sheep %d",sheepFocus));
 			
 			//Position behind towards gate, set counter to 0 [check this by distSheep<distDog and aligned]
+			
 			manipulateSheep(sheeps[sheepFocus], dogs[this.id-1]);
 			stepsPursued++;
 			if(stepsPursued==stepsToPursue)
@@ -205,7 +239,7 @@ public class ImprovedPlayer extends sheepdog.sim.Player {
 		println(String.format("Theta for dog=%f, theta for sheep=%f",getThetaFromGate(currPos),getThetaFromGate(sheep)));
 		println(String.format("Difference between the two is=%f",getThetaFromGate(currPos)-getThetaFromGate(sheep)));
 
-		moveTowardsDestination(false, currPos);
+		moveTowardsDestination(true, currPos);
 	}
 	
 	public double getThetaFromGate(Point p)
@@ -213,7 +247,7 @@ public class ImprovedPlayer extends sheepdog.sim.Player {
 		return Math.atan((p.y-gatePoint.y)/(p.x-gatePoint.x));
 	}
 
-	public void selectSheep(Point[] sheeps, Point dog){
+	public void selectSheep(Point[] sheeps, Point dog,boolean[] sheepsInSector){
 		
 		int maxSheepIndex=-1;
 		double maxSheepDist=-99999999999.0;
@@ -221,7 +255,7 @@ public class ImprovedPlayer extends sheepdog.sim.Player {
 		for(int i=0;i<sheeps.length;i++)
 		//for(Point sheep : sheeps)
 		{
-			if(sheeps[i].x<50)
+			if(sheeps[i].x<50 || sheepsInSector[i]==false)
 				continue;
 			double sheepGateDist=distance(gatePoint, sheeps[i]);
 			double sheepDogDist=distance(sheeps[i],dog);
@@ -236,20 +270,13 @@ public class ImprovedPlayer extends sheepdog.sim.Player {
 				maxSheepDist=diffDist;
 			}
 		}
-		
 		sheepFocus = maxSheepIndex;
-		/*if(sheepFocus!=-1 && sheeps[sheepFocus].x>=50)
-			return sheepFocus;
-		
-		int sheepChosen=r.nextInt(sheeps.length);
-		
-		while(sheeps[sheepChosen].x<50)
+		if(sheepFocus==-1)
 		{
-			sheepChosen=r.nextInt(sheeps.length);
+			println("--------------------------------Look into this");
+			//sheepFocus=0;
 		}
 		
-		sheepFocus=sheepChosen;
-		return sheepChosen;*/
 	}
 	
 	public boolean dogOnLine(Point sheep, Point dog){
@@ -285,6 +312,304 @@ public class ImprovedPlayer extends sheepdog.sim.Player {
 	
 	public void println(String s)
 	{
-		System.out.println(s);
+		//System.out.println(s);
 	}
+	
+	//Ashlesha
+	public int minAngleSheep(Point[] sheeps,boolean[] sheepsInSector)
+	{
+		if(sheepFocus!=-1 && distance(sheeps[sheepFocus], gatePoint) > initialRadius && sheepsInSector[sheepFocus])
+		{
+			return sheepFocus;
+		}
+		
+		int sheepChosen=-1;
+		double minAngle = Double.MAX_VALUE;
+		double angle;
+
+		/* while(sheeps[sheepChosen].x<50 && distance(sheeps[sheepChosen], gatePoint) < radius)
+		{
+			sheepChosen=r.nextInt(sheeps.length);
+			System.out.println("Sheep Chosen: " + sheepChosen);
+		} */
+
+		for(int i=0; i<sheeps.length; i++){
+			if(sheeps[i].x > 50 && distance(sheeps[i], gatePoint) > initialRadius && sheepsInSector[i]){
+				double xmod=sheeps[i].x - gatePoint.x;
+				double ymod=sheeps[i].y - gatePoint.y;
+				
+				if(xmod!=0)
+					angle=Math.atan(ymod/xmod);
+				else
+				{
+					if(sheeps[i].y>50)
+						angle=Math.toRadians(90);
+					else
+						angle=Math.toRadians(-90);
+				}
+				
+				if (angle < minAngle){
+					//xSystem.out.println("Angle: " + angle);
+					sheepChosen = i;
+					minAngle = angle;
+				}
+			}
+		}
+		
+		if(sheepChosen!=-1)
+		{
+			println(String.format("Dog %d chose sheep %f,%f at %f",this.id-1,sheeps[sheepChosen].x,sheeps[sheepChosen].y,Math.toDegrees(minAngle)));
+			println(String.format("-- this was amongst sheeps:%s",sheepArrayToString(sheeps)));
+		}
+		else
+			println("sheepChosen is -1");
+		
+		//xSystem.out.println("Minimum Angle: " + minAngle);
+		sheepFocus=sheepChosen;
+		return sheepChosen;
+	}
+
+	//Pranita
+	
+	public boolean[] mapSheep2(Point[] dogs, Point[] sheep) {
+		
+		return mapSheep2(dogs,sheep,this.id-1);
+	}
+	
+	public boolean[] mapSheep2(Point[] dogs, Point[] sheep, int dogSectorId) {
+		
+		//List<Point> sheepsInThisSector=new ArrayList<Point>();
+		//Point[] sheepsToReturn;
+		
+		boolean[] sheepsInSector=new boolean[sheep.length];
+		double angle=180/(1.0*dogs.length);
+		
+		double currentSectorStart=(dogSectorId)*angle-90;
+		double currentSectorEnd=currentSectorStart+angle;
+		
+		int i=0;
+		for(Point p:sheep)
+		{
+			double angleP=Math.toDegrees(Math.atan((p.y-gatePoint.y)/(p.x-gatePoint.x)));
+			//println(String.format("Angle for sheep %f,%f is %f",p.x,p.y,angleP));
+			//println(String.format("Range for this dog is [%f,%f) %n",currentSectorStart,currentSectorEnd));
+			if(angleP>=currentSectorStart && angleP<currentSectorEnd)
+				sheepsInSector[i]=true;
+			i++;
+		}
+		
+		return sheepsInSector;
+		/*
+		sheepsToReturn=new Point[sheepsInThisSector.size()];
+		int i=0;
+		for(Point p:sheepsInThisSector)
+			sheepsToReturn[i++]=p;
+		
+		printMappingOutput(sheepsToReturn);
+		
+		return sheepsToReturn;*/
+		
+	}
+	
+	public Point[] mapSheep(Point[] dogs, Point[] sheep) {
+		
+		if(dogs.length==1)
+			return sheep;
+
+	    //boolean b = false;
+	    //if(!b)
+	    //x
+		/*System.out.println("Sheep positions:");
+	    for (int i = 0; i < sheep.length; i++) {
+	        System.out.println(sheep[i].x + "," + sheep[i].y);
+	    }*/
+
+	    //int num_dogs = 5;
+		
+	    int num_dogs = dogs.length;
+	    boolean even = false;
+	    Point[] position_points = new Point[num_dogs - 1];
+
+	    for (int i = 0; i < num_dogs - 1; i++)
+	        position_points[i] = new Point(0, 0);
+
+	    double circumference = 20 * Math.PI;
+
+	    double sector_part = circumference / num_dogs;
+	    double angle = (sector_part * 180) / circumference;
+	    //xSystem.out.println("Angle :" + angle);
+	    if ((num_dogs % 2) == 0)
+	        even = true;
+	    if (even) {
+	        int a = (int)(num_dogs / 2);
+	        position_points[a - 1].x = 100;
+	        position_points[a - 1].y = 50;
+
+	    }
+
+	    if (even) {
+	        int j = (int)(num_dogs / 2) - 1;
+	        //System.out.println("initial k value:"+j);
+	        int k = j;
+	        int p = 1;
+	        int count = 0;
+	        double theta = angle;
+	        while (count != (num_dogs - 1) / 2) //while(theta<=90)
+	        {
+
+	            if (theta <= 45) {
+	                double length = 50 / Math.cos(Math.toRadians(theta));
+	                //xSystem.out.println("Length1:" + length);
+	                position_points[k - p].x = 100;
+	                position_points[k - p].y = 50 - length * Math.sin(Math.toRadians(theta));
+	                position_points[k + p].x = 100;
+	                position_points[k + p].y = 50 + length * Math.sin(Math.toRadians(theta));
+	                theta += angle;
+	                //System.out.println(position_points[1].x + "      " + position_points[1].y);
+	                p++;
+	            } else {
+	                //System.out.println(theta);
+	                //System.out.println(Math.sin(30));
+	                //xSystem.out.println("k = " + k + "p = " + p);
+	                double length = 50 / Math.sin(Math.toRadians(theta));
+	                //xSystem.out.println("Length2:" + length);
+	                position_points[k - p].x = 50 + length * Math.cos(Math.toRadians(theta));
+	                position_points[k - p].y = 0; //50 + length*Math.sin(theta);
+	                position_points[k + p].x = 50 + length * Math.cos(Math.toRadians(theta));
+	                position_points[k + p].y = 100; //50 + length*Math.sin(-theta);
+	                theta += angle;
+	                p++;
+	            }
+
+	            count += 1;
+	        }
+
+	    } else {
+	        int j = (int)(num_dogs / 2);
+	        //System.out.println("initial k value:"+j);
+	        int k = j;
+	        int p = 1;
+	        int count = 0;
+	        double theta = angle;
+	        while (count != (num_dogs - 1) / 2) //while(theta<=90)
+	        {
+
+	            if (theta <= 45) {
+	                double length = 50 / Math.cos(Math.toRadians(theta));
+	                //xSystem.out.println("Length1:" + length);
+	                position_points[k - p].x = 100;
+	                position_points[k - p].y = 50 - length * Math.sin(Math.toRadians(theta));
+	                position_points[k].x = 100;
+	                position_points[k].y = 50 + length * Math.sin(Math.toRadians(theta));
+	                theta += angle;
+	                //xSystem.out.println(position_points[1].x + "      " + position_points[1].y);
+	                k++;
+	                p += 2;
+	            } else {
+	                //System.out.println(theta);
+	                //System.out.println(Math.sin(30));
+	                //xSystem.out.println("k = " + k + "p = " + p);
+	                double length = 50 / Math.sin(Math.toRadians(theta));
+	                //xSystem.out.println("Length2:" + length);
+	                position_points[k - p].x = 50 + length * Math.cos(Math.toRadians(theta));
+	                position_points[k - p].y = 0; //50 + length*Math.sin(theta);
+	                position_points[k].x = 50 + length * Math.cos(Math.toRadians(theta));
+	                position_points[k].y = 100; //50 + length*Math.sin(-theta);
+	                theta += angle;
+	                k++;
+	                p += 2;
+	            }
+
+	            count += 1;
+	        }
+
+	    }
+
+//x
+	    /*for (int i = 0; i < position_points.length; i++)
+	        System.out.println("X coord:" + position_points[i].x + "Y coord:" + position_points[i].y);
+*/
+
+	    ArrayList < Point > Sheeplist = new ArrayList < Point > ();
+	    Point gate = new Point(50, 50);
+
+	    if (id == 1) {
+	        Point p = new Point(50, 0);
+	        for (int i = 0; i < sheep.length; i++)
+	            if (!isRight(gate, position_points[0], sheep[i])) //isRight(gate,p,sheep[i]) && 
+	                Sheeplist.add(sheep[i]);
+
+	    } else if (id == dogs.length) {
+	        Point p = new Point(50, 100);
+	        //Point a = new Point(50,100);
+	        //Point b = new Point(100,100);
+	        for (int i = 0; i < sheep.length; i++)
+	            if (!isRight(gate, position_points[position_points.length - 1], sheep[i])) //isRight(gate,p,sheep[i]) && 
+	                Sheeplist.add(sheep[i]);
+	    } else {
+	        boolean first_half_line1 = false, first_half_line2 = false;
+	        int line1 = id - 2;
+	        int line2 = id - 1;
+	        if (position_points[line1].y <= 50)
+	            first_half_line1 = true;
+	        if (position_points[line2].y <= 50)
+	            first_half_line2 = true;
+
+	        for (int i = 0; i < sheep.length; i++) {
+	            if (first_half_line1 && first_half_line2)
+	                if (isRight(gate, position_points[id - 2], sheep[i]) && !isRight(gate, position_points[id - 1], sheep[i]))
+	                    Sheeplist.add(sheep[i]);
+	            if (!first_half_line1 && !first_half_line2)
+	                if (!isRight(gate, position_points[id - 2], sheep[i]) && isRight(gate, position_points[id - 1], sheep[i]))
+	                    Sheeplist.add(sheep[i]);
+	            if (first_half_line1 && !first_half_line2)
+	                if (isRight(gate, position_points[id - 2], sheep[i]) && isRight(gate, position_points[id - 1], sheep[i]))
+	                    Sheeplist.add(sheep[i]);
+	        }
+	    }
+
+//x
+	    /*System.out.println("My ID:" + id);
+	    for (Point item: Sheeplist) {
+	        System.out.println(item.x + "  ,  " + item.y);
+	    }
+	    System.out.println("done");*/
+
+	    
+	    Point[] sheepsToReturn=new Point[Sheeplist.size()];
+	    int i=0;
+	    for(Point oneSheep:Sheeplist)
+	    	sheepsToReturn[i++]=oneSheep;
+	    
+	    printMappingOutput(sheepsToReturn);
+	    
+	    return sheepsToReturn;
+
+	}
+	
+	public void printMappingOutput(Point[] sheeps)
+	{
+		println(String.format("For dog %d the sheeps are:%s",this.id-1,sheepArrayToString(sheeps)));
+	}
+	
+	public String sheepArrayToString(Point[] sheeps)
+	{
+		String ret="";
+		for(Point p: sheeps)
+			ret+=(String.format("[ %f, %f],",p.x,p.y));
+		
+		return ret;
+	}
+
+	public boolean isRight(Point a, Point b, Point c) {
+	    double slope = (b.y - a.y) / (b.x - a.x);
+	    double c1 = a.y - slope * a.x;
+	    double xcoord = (c.y - c1) / slope;
+	    if (c.x > xcoord)
+	        return true;
+
+	    return false;
+	}
+
 }
+

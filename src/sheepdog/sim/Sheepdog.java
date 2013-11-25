@@ -155,8 +155,10 @@ public class Sheepdog
 
     // compute Euclidean distance between two points
     static double distance(Point a, Point b) {
-        return Math.sqrt((a.x-b.x) * (a.x-b.x) +
-                         (a.y-b.y) * (a.y-b.y));
+    	double d=(a.x-b.x) * (a.x-b.x) +
+                (a.y-b.y) * (a.y-b.y);
+    	//System.out.println("(("+d+" "+a.x+" "+a.y+" "+b.x+" "+b.y);
+        return Math.sqrt(d);
     }
 
     static double vectorLength(double ox, double oy) {
@@ -348,7 +350,9 @@ public class Sheepdog
         double mindist = Double.MAX_VALUE;
         for (int i = 0; i < ndogs; ++i) {
             double d = distance(sheeps[sheepId], dogs[i]);
-            if (d < mindist/* && d != 0*/) { // ignore overlapping dog
+            //System.out.println("Compared"+distance(sheeps[sheepId], dogs[i])+" and "+mindist);
+            if (d <= mindist/* && d != 0*/) { // ignore overlapping dog
+            //	System.out.println("changed");
                 mindist = d;
                 mindog = i;
             }
