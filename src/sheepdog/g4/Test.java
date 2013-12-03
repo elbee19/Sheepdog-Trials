@@ -8,7 +8,7 @@ public class Test {
 		Player player=new Player();
 		Point from=new Point(54,54);
 		Point to=new Point(50,50);
-		Point pos=player.positionDogNearSheep(from, to, 1);
+		Point pos=player.positionDogNearSheep(from, to, 1, true);
 		System.out.println(pos.x+" "+pos.y);
 	}
 }

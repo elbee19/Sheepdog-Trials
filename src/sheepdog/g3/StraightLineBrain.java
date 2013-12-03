@@ -9,11 +9,6 @@ import sheepdog.g3.Calculator.SIDE;
 import sheepdog.sim.Point;
 
 public abstract class StraightLineBrain extends sheepdog.g3.DogBrain{
-
-    private double DOG_SHEEP_MIN_DIST = 1; 
-    private static final double SHEEP_RUN_SPEED = 1.000;
-    private static final double SHEEP_WALK_SPEED = 0.100;
-    protected static final Point GAP = new Point(50, 50);
     int prevClosestSheep = -1;
     boolean prevWhichSheep = true;
     public StraightLineBrain(int id, boolean advanced, int nblacks) {
@@ -26,41 +21,57 @@ public abstract class StraightLineBrain extends sheepdog.g3.DogBrain{
         Point me = dogs[mId];
         
         //If dog on the left side of fence, move dog towards the gap
-        if(Calculator.getSide(dogs[mId].x) == SIDE.WHITE_GOAL_SIDE)
+        if(Calculator.getSide(dogs[mId].x) == SIDE.BLACK_GOAL_SIDE)
         {
             return Calculator.getMoveTowardPoint(me, GAP);
         }
-        else {
-            ArrayList<Integer> undeliveredIndices = Calculator.undeliveredWhiteSheep(sheeps);
-            
-            int chosenSheepIndex = chooseSheep(dogs, sheeps, undeliveredIndices);
+        
+        ArrayList<Integer> undeliveredIndices = Calculator.undeliveredBlackSheep(sheeps);
 
-            
-            Point targetSheep = sheeps[chosenSheepIndex];
-            targetSheep = anticipateSheepMovement(me, targetSheep); 
-            
-            double angleGapToSheep = Calculator.getAngleOfTrajectory(GAP, targetSheep);
-            Point idealLocation = Calculator.getMoveInDirection(targetSheep, angleGapToSheep, DOG_SHEEP_MIN_DIST);
-            Point moveLocation = Calculator.getMoveTowardPoint(me, idealLocation);
-            makePointValid(moveLocation);
-            return moveLocation;
+        return moveASheep(dogs, sheeps, me, undeliveredIndices);
+
+    }
+    
+    @Override
+    public Point getAdvancedMove(Point[] dogs, Point[] whiteSheep,
+            Point[] blackSheep) {
+        Point me = dogs[mId];
+        SIDE mySide = Calculator.getSide(me.x);
+        ArrayList<Integer> undeliveredIndices;
+        Point[] sheeps;
+        
+        // Decide which side I'm on and which side to work at
+        if (mySide == SIDE.BLACK_GOAL_SIDE) {
+            undeliveredIndices = Calculator.undeliveredWhiteSheep(whiteSheep);
+            sheeps = whiteSheep;
         }
-
+        else if (mySide == SIDE.WHITE_GOAL_SIDE){
+            undeliveredIndices = Calculator.undeliveredBlackSheep(blackSheep);
+            sheeps = blackSheep;
+        }
+        else {
+            ArrayList<Integer> blackIndices = Calculator.undeliveredBlackSheep(blackSheep);
+            ArrayList<Integer> whiteIndices = Calculator.undeliveredWhiteSheep(whiteSheep);
+            if (blackIndices.size() > whiteIndices.size()) {
+                undeliveredIndices = blackIndices;
+                sheeps = blackSheep;
+            }
+            else {
+                undeliveredIndices = whiteIndices;
+                sheeps = whiteSheep;
+            }
+        }
+        
+        // If there are no sheep to be delivered on this side go toward the gap
+        if (undeliveredIndices.size() == 0) {
+            return Calculator.getMoveTowardPoint(me, GAP);
+        }
+        
+        return moveASheep(dogs, sheeps, me, undeliveredIndices);
     }
 
     protected abstract int chooseSheep(Point[] dogs, Point[] sheeps, ArrayList<Integer> undeliveredIndices);
 
-    private Point anticipateSheepMovement(Point me, Point targetSheep) {
-        double angleDogToSheep = Calculator.getAngleOfTrajectory(me, targetSheep);
-        if (Calculator.withinRunDistance(targetSheep, me)) {
-            targetSheep = Calculator.getMoveInDirection(targetSheep, angleDogToSheep, SHEEP_RUN_SPEED);
-        }
-        else if (Calculator.withinWalkDistance(targetSheep, me)) {
-            targetSheep = Calculator.getMoveInDirection(targetSheep, angleDogToSheep, SHEEP_WALK_SPEED);
-        }
-        return targetSheep;
-    }
-    
     protected ArrayList<Integer> getDistanceSortedIndices(final Point[] sheeps, final Point pt, ArrayList<Integer> sheepToCheck ) {
         Collections.sort(sheepToCheck, new Comparator<Integer>() {
             @Override
@@ -72,10 +83,11 @@ public abstract class StraightLineBrain extends sheepdog.g3.DogBrain{
         return sheepToCheck;
     }
 
-    @Override
-    public Point getAdvancedMove(Point[] dogs, Point[] whiteSheep,
-            Point[] blackSheep) {
-        // Do nothing, this brain is only for a basic player
-        return null;
+    private Point moveASheep(Point[] dogs, Point[] sheeps, Point me,
+            ArrayList<Integer> undeliveredIndices) {
+        int chosenSheepIndex = chooseSheep(dogs, sheeps, undeliveredIndices);
+        
+        Point targetSheep = sheeps[chosenSheepIndex];
+        return forceSheepToMove(targetSheep, me);
     }
 }

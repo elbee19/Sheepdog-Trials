@@ -351,8 +351,8 @@ public class Sheepdog
         for (int i = 0; i < ndogs; ++i) {
             double d = distance(sheeps[sheepId], dogs[i]);
             //System.out.println("Compared"+distance(sheeps[sheepId], dogs[i])+" and "+mindist);
-            if (d <= mindist/* && d != 0*/) { // ignore overlapping dog
-            //	System.out.println("changed");
+            if (d <= mindist && d != 0) { // ignore overlapping dog
+            	//System.out.println("changed");
                 mindist = d;
                 mindog = i;
             }

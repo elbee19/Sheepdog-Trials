@@ -5,6 +5,7 @@ import java.util.*;
 
 public class Player extends sheepdog.sim.Player {
     private int nblacks;
+    private int sim_nblacks;
     private boolean mode;
 
     private static final double up_limit = 0.0;
@@ -14,42 +15,151 @@ public class Player extends sheepdog.sim.Player {
     private static final double max_dog_speed = 1.9999;
     private static final double max_sheep_speed = 0.9999;
 
-    private static final double border_distance = 49.5;
-
     private Record globalRecord;
+    private TreeStrategy[] treeStrategies;
+
+    private static final double dog_territory_range = 1.5;
+    private static final double border_distance = 49.5;
 
     private int strategy_phase;
     public Sweep[] sweeps;
 
     public void init(int nblacks, boolean mode) {
-        this.nblacks = nblacks;
+        this.sim_nblacks = nblacks;
         this.mode = mode;
         strategy_phase = -1; // nothing happens now
         globalRecord = new Record();
+        globalRecord.gameDirection = 1;
     }
 
     // Return: the next position
     // my position: dogs[id-1]
-    public Point move(Point[] dogs, // positions of dogs
-                      Point[] sheeps) { // positions of the sheeps
-
+    public Point move(Point[] sim_dogs, // positions of dogs
+                      Point[] sim_sheeps) { // positions of the sheeps
+        
+        //Point[] dogs = sim_dogs;
+        //Point[] sheeps = sim_sheeps;
+        //nblacks = sim_nblacks;
+        
+        Point[] dogs = new Point[sim_dogs.length];
+        Point[] sheeps = new Point[sim_sheeps.length];
+        sheeps = copyPointArray(sim_sheeps, globalRecord.gameDirection, true);
+        dogs = copyPointArray(sim_dogs, globalRecord.gameDirection, false);
         Point current = dogs[id-1];
-        // basic scenario
-        if( mode == false) {
-
-            return basic_strategy(dogs, sheeps);
-            /*
-            if  (dogs.length == 1) {
-                return basic_strategy(dogs, sheeps);
+        Point next = new Point();
+        //sheeps = copyPointArray(sim_sheeps, -1, true);
+        //dogs = copyPointArray(sim_dogs, -1, false);
+        
+        if (allTargetSheepMoved(globalRecord.gameDirection, sim_sheeps) && mode) {
+            System.out.println("Sys.Reset: old dir = " + globalRecord.gameDirection);
+            // change to the other direction
+            int dir = globalRecord.gameDirection;
+            strategy_phase = -1; // forget everything
+            globalRecord = new Record();
+            globalRecord.gameDirection = dir * (-1);
+            // and reset all the necessary data structure
+            // reset the sheeps: exchange the roles of black sheeps and white sheeps
+            if (globalRecord.gameDirection < 0) {
+                nblacks = sim_nblacks;
             }
             else {
-                return manyDogStrategy(dogs, sheeps);
+                nblacks = sheeps.length - sim_nblacks;
             }
-            */
+            sheeps = copyPointArray(sim_sheeps, globalRecord.gameDirection, true);
+            dogs = copyPointArray(sim_dogs, globalRecord.gameDirection, false);
+            current = dogs[id-1];
+            treeStrategies = new TreeStrategy[sim_dogs.length];
+            treeStrategies[id-1] = new TreeStrategy(current, sheeps, dogs, id, nblacks);
+            System.out.println("Sys.Reset.done: new dir = " + globalRecord.gameDirection);
+        }
+        if(!mode) {
+            globalRecord.gameDirection = -1;
+        }
+        
+        Point[] blackSheep = new Point[nblacks];
+        for (int i = 0 ; i < nblacks; i++){
+          blackSheep[i] = sheeps[i];
+        }
+        if (mode){
+          sheeps = blackSheep;
+        }
+        if (treeStrategies == null){
+          treeStrategies = new TreeStrategy[dogs.length];
+        }
+        if (treeStrategies[id-1] == null){
+          treeStrategies[id-1] = new TreeStrategy(current, sheeps, dogs, id, nblacks);
+        } else {
+          treeStrategies[id-1].update(current, sheeps, dogs);
+        }
+
+        // basic scenario
+        if( mode == false) {
+            // return basic_strategy(dogs, sheeps);
+            if  (dogs.length >= sheeps.length) {
+                next =  basic_strategy(dogs, sheeps);
+            } else if (dogs.length < 35){
+                next =  treeStrategies[id-1].nextMove();
+            } else {
+                next = manyDogStrategy(dogs, sheeps);
+            }
         }
         // advanced scenario
         else {
-            return current;
+            //return basic_strategy(dogs, sheeps);
+            // return basic_strategy(dogs, sheeps);
+            if  (dogs.length >= nblacks) {
+                next =  basic_strategy(dogs, sheeps);
+            } else 
+                next =  treeStrategies[id-1].nextMove();
+        }
+        
+        if (globalRecord.gameDirection > 0) {
+            next.x = 100.0 - next.x;
+        }
+        
+        return next;
+    }
+
+    private Point[] copyPointArray(Point[] sim_a, int gameDirection, boolean isSheep) {
+        Point[] a = new Point[sim_a.length];
+        if (gameDirection < 0) {
+            for (int i = 0; i < sim_a.length; i++) {
+                a[i] = new Point(sim_a[i].x, sim_a[i].y);
+            }
+        }
+        else {
+            for (int i = 0; i < sim_a.length; i++) {
+                int j = i;
+                if (isSheep) {
+                    j = sim_a.length - i - 1;
+                }
+                a[i] = new Point(100.0 - sim_a[j].x, sim_a[j].y);
+            }
+        }
+        return a;
+    }
+
+    private boolean allTargetSheepMoved(int gameDirection, Point[] sim_sheeps) {
+        if (gameDirection < 0) {
+            // check if all black sheeps are on the left
+            for (int i = 0; i < sim_nblacks; i++) {
+                System.out.println();
+                System.out.print(i + ".x="+sim_sheeps[i].x+",");
+                if (sim_sheeps[i].x > 50.0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        else {
+            System.out.println("g.d>0");
+            // check if all the white sheeps are on the right
+            for (int i = sim_nblacks; i < sim_sheeps.length; i++) {
+                if (sim_sheeps[i].x < 50.0) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
@@ -58,11 +168,12 @@ public class Player extends sheepdog.sim.Player {
       int idx = id - 1;
 
       if (sweeps[idx] == null) {
-        sweeps[idx] = new Sweep(dogs, sheep, id - 1);
+        sweeps[idx] = new Sweep(dogs, sheep, id - 1, globalRecord);
       } else {
         sweeps[idx].current = dogs[idx];
         sweeps[idx].dogs = dogs;
         sweeps[idx].sheep = sheep;
+        sweeps[idx].globalRecord = globalRecord;
       }
       return sweeps[idx].nextMove();
     }
@@ -78,13 +189,13 @@ public class Player extends sheepdog.sim.Player {
                 return move_dogs_to_the_other_side(dogs, sheeps);
             case 0:
                 return sweep_sheep(dogs, sheeps);
-            /*
-            case 1:
-                return collect_sheep(dogs, sheeps);
-            case 2:
-                return move_sheep(dogs, sheeps);
+            
+            // case 1:
+            //     return collect_sheep(dogs, sheeps);
+            // case 2:
+            //     return move_sheep(dogs, sheeps);
             case 3:
-            */
+                break;
             default:
                 break;
         }
@@ -112,13 +223,31 @@ public class Player extends sheepdog.sim.Player {
     private void print_point(Point thePoint, String s) {
         System.out.println( s + " : (" + thePoint.x + "," + thePoint.y + ")");
     }
+
+    private Point vector_diff(Point pointA, Point pointB) {
+        return new Point(pointB.x - pointA.x, pointB.y - pointA.y);
+    }
+    private Point vector_add(Point pointA, Point pointB) {
+        return new Point(pointA.x + pointB.x, pointA.y + pointB.y);
+    }
+    private Point vector_add(Point thePoint, double extraLength) {
+        double oldLength = vector_length(thePoint);
+        double newLength = oldLength + extraLength;
+        if (oldLength == 0) {
+            return new Point(extraLength, 0.0);
+        }
+        return new Point(thePoint.x * newLength/oldLength, thePoint.y * newLength/oldLength);
+    }
     private double vector_length(Point thePoint) {
         return Math.sqrt(thePoint.x * thePoint.x + thePoint.y * thePoint.y);
     }
     private double vector_length(Point pointA, Point pointB) {
+        /*
         double dx = pointA.x - pointB.x;
         double dy = pointA.y - pointB.y;
         return Math.sqrt( dx*dx + dy*dy);
+        */
+        return vector_length(vector_diff(pointA,pointB));
     }
     private Point next_toward_goal(Point current, Point goal, double speed) {
         Point direction = new Point( goal.x - current.x, goal.y - current.y );
@@ -409,19 +538,10 @@ public class Player extends sheepdog.sim.Player {
         ArrayList<Integer> theList = new ArrayList<Integer>();
         for(int i = 0; i < sheeps.length; i++ ) {
             if (sheeps[i].x >= 50.0) {
+                if(!mode || i < nblacks)
                 theList.add(i);
             }
         }
-        /*
-        System.out.print("sheepList:");
-        int[] ret = new int[theList.size()];
-        for(int i = 0; i < theList.size(); i++) {
-            ret[i] = theList.get(i).intValue();
-            System.out.print(ret[i]+",");
-        }
-        System.out.println();
-        return ret;
-        */
         return theList;
     }
 
@@ -472,21 +592,28 @@ public class Player extends sheepdog.sim.Player {
         }
         return index;
     }
-    private int nearest_sheep_not_chased(ArrayList<Integer> sheepList, Point[] sheeps, Point[] dogs) {
-        //boolean[] theSheepIsChased = new boolean[sheeps.length];
-        //Arrays.fill(theSheepIsChased, false);
-        for (int i = 0; i < id - 1; i++) {
-            if (dogs[i].x >= 50) {
-                // mark dog by dog
-                int j = nearest_sheep(sheepList, sheeps, dogs[i]);
-                //theSheepIsChased[j] = true;
-                for (int k = 0; k < sheepList.size(); k++) {
-                    if (j == sheepList.get(k) ) {
-                        sheepList.remove(k);
-                        break;
-                    }
-                }
+
+    private void remove_other_dogs_targets(ArrayList<Integer> sheepList, Point[] sheeps, Point theDog) {
+        if(sheepList.size() == 0) {
+            return;
+        }
+        double min_distance = -1;
+        int index = -1;
+        for(int i = 0; i < sheepList.size(); i++) {
+            double d = vector_length(theDog, sheeps[sheepList.get(i)]);
+            if(index == -1 || min_distance > d) {
+                index = i;
+                min_distance = d;
             }
+        }
+        System.out.print("SheepChased:" + sheepList.get(index) + ", by the dog at: ");
+        print_point(theDog, "");
+        sheepList.remove(index);
+    }
+
+    private int nearest_sheep_not_chased(ArrayList<Integer> sheepList, Point[] sheeps, Point[] dogs) {
+        for (int i = 0; i < id-1; i++) {
+            remove_other_dogs_targets(sheepList, sheeps, dogs[i]);
         }
         return nearest_sheep(sheepList, sheeps, dogs[id-1]);
     }
@@ -500,199 +627,52 @@ public class Player extends sheepdog.sim.Player {
         Point next = new Point(dogs[id-1].x, dogs[id-1].y); 
 
         /*
-        "finite state machine"
-        // specify the sheeps it need to take care
-            1. list all the sheeps which are "too close" (10m) to the fence
-            2. divide tasks to all dogs
-            3. each dog keep track with the same sheeps
-                3.i the dog run along the fence to the opposite direction of the sheeps
-                3.ii the dog approach sheep with the run speed of sheeps
-                3.iii until the sheeps are away from the fence
-                3.iv then it move back to the fence and move to the next sheep
+            (stateless machine)
+            one-dog-per-sheep strategy
         */
-
-        // normal sheeping strategy
-
-            System.out.println("sweepPhase = " + globalRecord.sweepPhase);
-            System.out.println("targetSheep: " + globalRecord.targetSheepIndex);
-            ArrayList<Integer> sheepList = list_free_sheeps(sheeps);
-            Point theSheep = new Point();
-            // case of no target sheep now, find the nearest sheep as the target
-            if(globalRecord.targetSheepIndex == -1) {
-                globalRecord.sweepPhase = 3;
-            }
-
-            switch(globalRecord.sweepPhase) {
-                // phase -1: choose a sheep. if choosed, then keep moving to its extending line a little bit further
-                // phase 0: approach to the sheep with the run speed of sheeps, then chase it back to the gatePoint
-                // phase 1: move the sheep into the left side with 1m
-                // phase 2: go back to the gatePoint
-                case -1:
-                    // set the goal be 1.0m more further
-                    theSheep = sheeps[globalRecord.targetSheepIndex];
-                    Point goal = projection_from_gate(theSheep, 3.0);
-                    if(next.equals(goal) || vector_length(next,goal) <= 0.5 ) {
-                        globalRecord.sweepPhase = 0;
-                        break;
-                    }
-                    if( sheep_in_gate(theSheep)) {
-                        globalRecord.sweepPhase = 2;
-                    }
-                    // then move to the goal
-                    next = next_toward_goal(next, goal, max_dog_speed);
-                    break;
-                case 0:
-                    // herding sheep to the gatePoint
-                    theSheep = sheeps[globalRecord.targetSheepIndex];
-                    double moveSpeed = max_sheep_speed;
-                    if (sheep_in_gate(theSheep)) {
-                        globalRecord.sweepPhase = 1;
-                        break;
-                    }
-                    if (vector_length(next,globalRecord.gatePoint) <= 
-                        vector_length(theSheep,globalRecord.gatePoint)) {
-                        globalRecord.sweepPhase = -1;
-                        break;
-                    }
-                    if (vector_length(next,theSheep) > 1.1) {
-                        moveSpeed = max_dog_speed;
-                    }
-                    next = next_toward_goal(next, projection_from_gate(theSheep, 0.1), moveSpeed);
-                    break;
-                case 1:
-                    // move the sheep 1m into the left side
-                    theSheep = sheeps[globalRecord.targetSheepIndex];
-                    if ( deep_in_left(theSheep)) {
-                        globalRecord.sweepPhase = 2;
-                    }
-                    else {
-                        Point direction = new Point (50.0 - theSheep.x, 50.0 - theSheep.y);
-                        if( theSheep.x >= 50.0 ) {
-                            direction.x = 1;
-                            direction.y = 0;
-                        }
-                        if( sheep_in_gate(theSheep) ) {
-                            next = next_toward_goal(next, next_with_direction(theSheep, direction, 0.2), max_dog_speed);
-                        }
-                        // sometimes the sheep escape
-                        else {
-                            globalRecord.sweepPhase = -1;
-                        }
-                        break;
-                    }
-                case 2:
-                    // heading back to the idlePoint
-                    if (next.equals(globalRecord.gatePoint)) {
-                        // ready for next sheep
-                        globalRecord.sweepPhase = 3;
-                        globalRecord.targetSheepIndex = -1;
-                    }
-                    next = next_toward_goal(next, globalRecord.gatePoint, max_dog_speed);
-                    break;
-                case 3:
-                    if (next.equals(globalRecord.idlePoint)) {
-                        globalRecord.targetSheepIndex = nearest_sheep_not_chased(sheepList, sheeps, dogs);
-                        if(globalRecord.targetSheepIndex != -1) {
-                            globalRecord.sweepPhase = -1;
-                        }
-                    }
-                    print_point(globalRecord.idlePoint, "idlePoint");
-                    next = next_toward_goal(next, globalRecord.idlePoint, max_dog_speed);
-                    break;
-                //escape from the left side
-                case 999:
-                    Point theEscape = new Point(49.9, 50.0);
-                    if (next.equals(theEscape)) {
-                        globalRecord.sweepPhase = 2;
-                    }
-                    next = next_toward_goal(next, theEscape, max_dog_speed);
-                    break;
-                default:
-                    break;
-            }
-
+        ArrayList<Integer> sheepList = list_free_sheeps(sheeps);
+        int newTargetIndex = nearest_sheep_not_chased(sheepList, sheeps, dogs);
+        int sweepPhase = 0;
+        if( newTargetIndex == -1) {
+            sweepPhase = -1;
+        }
+        else {
+            sweepPhase = 0;
+        }
+        switch(sweepPhase) {
+            case 0:
+                double keepDistance = 1.0;
+                Point theSheep = sheeps[newTargetIndex];
+                // move to the position that can push the sheep toward the gate next tick
+                Point theSheepPositionNextTick = vector_add(dogs[id-1], vector_add(
+                    vector_diff(dogs[id-1],theSheep), max_sheep_speed));
+                if (theSheepPositionNextTick.x < 50.0) {
+                    next = next_toward_goal(next, globalRecord.gatePoint, max_sheep_speed);
+                }
+                else if (theSheepPositionNextTick.x == 50.0 &&
+                         theSheepPositionNextTick.y < 51.0 &&
+                         theSheepPositionNextTick.y > 49.0) {
+                    Point thePushPoint = vector_add(theSheepPositionNextTick, new Point(keepDistance, 0.0));
+                    next = next_toward_goal(next, theSheepPositionNextTick, max_dog_speed);
+                }
+                else {
+                    Point thePushPoint = projection_from_gate(theSheepPositionNextTick, keepDistance);
+                    next = next_toward_goal(next, thePushPoint, max_dog_speed);
+                }
+                break;
+            case -1:
+                // idle for other dogs
+                next = next_toward_goal(next, globalRecord.idlePoint, max_dog_speed);
+                break;
+            default:
+                break;
+        }
+        if(next.x < 50.0) {
+            next.x = 50.0;
+        }
         return next;
     }
 
-    /*
-
-    private Point collect_sheep( Point[] dogs, Point[] sheeps ) {
-        // goal: get sheep inside of desired radius
-        // input: the positions of the dogs and the sheeps
-        // return: the position of where the dog should move
-        // Get sheep outside of desired radius
-        // for now, radius is hard coded as 10m
-        ArrayList<Point> sheepOutsideRadius = sheepOutsideRadius(sheeps, 5.0);
-        if(sheepOutsideRadius  != null){
-            System.out.println("THERE ARE THIS MANY SHEEP OUTSIDE RADIUS" + sheepOutsideRadius);
-        }
-        Point targetPoint = new Point(dogs[id-1].x, dogs[id-1].y);
-        // below is the strategy for just one dog
-        if(dogs.length == 1){
-            // find the nearest sheep to get to go to the radius
-            // closestSheep
-            Point closestSheep = closestSheep(sheepOutsideRadius, dogs[id-1]);
-            // Determine the target direction for the sheep to move in
-            // target direction is on three points side of circle
-            // target direction is determined by slope of line between sheep and center point
-            Point centerPoint = centerPoint(sheeps);
-            double slope = (closestSheep.x - centerPoint.x) / (closestSheep.y - centerPoint.y);
-            //System.out.println(globalRecord.dogsMovement.length);
-            //Point lastPoint = globalRecord.dogsMovement[globalRecord.dogsMovement.length-1];
-            // move along arc!
-            // left point of sheep
-            Point leftMostPoint = new Point(closestSheep.x - .1, closestSheep.y);
-            Point rightMostPoint = new Point(closestSheep.x + .1, closestSheep.y);
-            Point bottomMostPoint = new Point(closestSheep.x, closestSheep.y - .1);
-            Point topMostPoint = new Point(closestSheep.x, closestSheep.y + .1);
-
-            ArrayList<Point> desiredPoints = new ArrayList<Point>(4);
-            desiredPoints.add(leftMostPoint);
-            desiredPoints.add(rightMostPoint);
-            desiredPoints.add(bottomMostPoint);
-            desiredPoints.add(topMostPoint);
-
-            // I'm just going to move from this point to that
-            System.out.println(slope);
-            if(slope >= 0){
-                Point newTarget = closestSheep(desiredPoints, dogs[id-1]);
-                targetPoint = next_toward_goal(targetPoint, newTarget, max_dog_speed);
-                //next_with_direction
-            }
-            else{
-                // DO SOMETHING
-            }
-            return targetPoint;
-        }
-
-        // TODO: below is the strategy for more than just one dog
-        return new Point(0.0,0.0);
-        //return next_toward_goal(next, projection_to_fence(next), max_dog_speed);
-    }
-
-    // find the closest sheep depending on the sheeps passed in
-    // return the coordinates of the closest sheep
-    private Point closestSheep(ArrayList<Point> sheeps, Point dog){
-        Point closestSheep = new Point(0.0,0.0);
-        double closestDistance = 1000.0;
-        for(Point sheep: sheeps){
-            double minusXs = dog.x - sheep.x;
-            double minusYs = dog.y - sheep.y;
-            double distance = Math.sqrt((Math.pow(minusXs,2.0)) + (Math.pow(minusYs, 2.0)));
-            if(distance < closestDistance){
-                closestDistance = distance;
-                closestSheep = sheep;
-            }
-        }
-        return closestSheep;
-    }
-
-    private Point move_sheep( Point[] dogs, Point[] sheeps ) {
-        // Point next;
-        return new Point(0.0, 0.0);
-    }
-
-    */
 }
 
 

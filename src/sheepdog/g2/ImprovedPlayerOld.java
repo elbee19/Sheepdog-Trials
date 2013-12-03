@@ -7,27 +7,42 @@ import sheepdog.sim.Point;
 
 public class ImprovedPlayerOld extends sheepdog.sim.Player {
 
+	//config
+	int nblacks;
+	boolean mode;
+	
 	//Constants
 	private final Point gatePoint=new Point(50,50);
 	private final double epsilon=0.01;
 	private final int stepsToPursue=3;
+	
 	private int tooCloseThreshold;
+	private boolean takeCareOfYellowSheep=true;
 	
 	//Bookkeeping
 	Point currDestination;
 	State currState;
-	int sheepFocus; //x
+	int sheepFocus;
 	boolean firstCall;
 	int[] tooClose;
 	int stepsPursued;
+	boolean chasingSheepOut;
+	
+	double closestWhiteSheep;
+	double closestBlackSheep;
+	double furthestBlackSheep;
+	int closestWhitePoint;
+	int closestBlackPoint;
+	int furthestBlackPoint;
 	
 	//Others
 	Random r;
-	@Override
+	
 	public void init(int nblacks, boolean mode) {
-		// TODO Auto-generated method stub
-		
+		this.nblacks=nblacks;
+		this.mode=mode;
 	}
+	
 	public ImprovedPlayerOld()
 	{
 		stepsPursued=0;
@@ -35,6 +50,11 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 		currDestination=new Point();
 		sheepFocus=-1;
 		firstCall=true;
+		r=new Random();
+
+		closestWhiteSheep=Double.MAX_VALUE;
+		closestBlackSheep=Double.MAX_VALUE;
+		furthestBlackSheep=Double.MIN_VALUE;
 		
 		setDestination(gatePoint);
 	}
@@ -44,9 +64,9 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 		
 		if(firstCall)
 		{
-			r=new Random();
 			tooClose=new int[dogs.length];
 			tooCloseThreshold=(new Random()).nextInt(5);
+			firstCall=false;
 		}
 		
 		if(currState==State.INIT){
@@ -61,41 +81,78 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 		}
 		
 		else if(currState == State.MANIPULATESHEEP){
-			//pursue for no of ticks and then continue
 			
-			//Find sheep with minimum distGate-distToSheep
-			if(stepsPursued==0)
+			boolean[] sheepsInSector=mapSheep2(dogs, sheeps, this.id-1); //This method calculates the closest and furthest black sheeps as well, hence call right at the start
+			double ownDistance=distance(gatePoint,dogs[this.id-1]);
+			
+			boolean preConditions=takeCareOfYellowSheep && mode && this.id-1==0;
+			
+			if( preConditions && chasingSheepOut)
 			{
-				boolean[] sheepsInSector=mapSheep2(dogs, sheeps, this.id-1);
-				selectSheep(sheeps, dogs[this.id-1], sheepsInSector); //sets sheepFocus
-				
-				if(sheepFocus==-1)
+				double gateTargetDistance = distance(sheeps[sheepFocus],gatePoint);
+				if(gateTargetDistance>20 && gateTargetDistance>furthestBlackSheep+2) //Parameters
 				{
-					/*if(dogs[this.id-1].x>46)
-						dogs[this.id-1].x-=1.99;*/
-					for(int i=0;i<dogs.length;i++)
-					{
-						if(i==this.id-1)
-							continue;
-						
-						sheepsInSector=mapSheep2(dogs, sheeps, i);
-						selectSheep(sheeps, dogs[this.id-1], sheepsInSector);
-						if(sheepFocus!=-1)
-							break;
-					}
-					if(sheepFocus==-1)
-						return dogs[this.id-1];
+					chasingSheepOut=false;
 				}
+			}
+			
+			println(String.format("--- %b Closestblack %f furthestblack %f closestwhite %f",preConditions,closestBlackSheep,furthestBlackSheep,closestWhiteSheep));
+			
+			if( preConditions &&
+			(chasingSheepOut || ((/*closestBlackSheep<=3.0 ||*/ furthestBlackSheep<=30.0) && closestWhiteSheep<furthestBlackSheep)) //Check if an obnoxious sheep should be pushed out //parameters
+			&& sheeps[closestWhitePoint].x>50 ) //Don't consider sheep if it was already pushed
+			{
+				println("Chasing Yellow out now");
+				
+				if(!chasingSheepOut)
+				{
+					chasingSheepOut=true;
+					sheepFocus=closestWhitePoint;
+					stepsPursued=0;
+				}
+				
+				chaseSheepOut(sheeps[sheepFocus], dogs[this.id-1]);
+			}
+			else //Do the usual thing
+			{
+				println("------Doing the usual thing");
+				
+				//pursue for no of ticks and then continue
+				if(stepsPursued==0)
+				{
+					selectSheep(sheeps, dogs[this.id-1], sheepsInSector); //sets sheepFocus
+					
+					if(sheepFocus==-1)
+					{
+						/*if(dogs[this.id-1].x>46)
+							dogs[this.id-1].x-=1.99;*/
+						for(int i=0;i<dogs.length;i++)
+						{
+							if(i==this.id-1)
+								continue;
+							
+							sheepsInSector=mapSheep2(dogs, sheeps, i);
+							selectSheep(sheeps, dogs[this.id-1], sheepsInSector);
+							if(sheepFocus!=-1)
+								break;
+						}
+						if(sheepFocus==-1)
+							return dogs[this.id-1];
+					}
+					
+				}
+				
+				println(String.format("selected sheep %d",sheepFocus));
+				
+				//Position behind towards gate, set counter to 0 [check this by distSheep<distDog and aligned]
+				manipulateSheep(sheeps[sheepFocus], dogs[this.id-1]);
+				stepsPursued++;
+				if(stepsPursued==stepsToPursue)
+					stepsPursued=0;
 				
 			}
 			
-			println(String.format("selected sheep %d",sheepFocus));
 			
-			//Position behind towards gate, set counter to 0 [check this by distSheep<distDog and aligned]
-			manipulateSheep(sheeps[sheepFocus], dogs[this.id-1]);
-			stepsPursued++;
-			if(stepsPursued==stepsToPursue)
-				stepsPursued=0;
 		}
 		
 		println(String.format("Steps pursued=%d, total=%d",stepsPursued,stepsToPursue));
@@ -103,29 +160,6 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 		applyCorrection(dogs[this.id-1]);
 		return dogs[this.id-1];
 		
-		/*assert dogs.length != 1;
-		
-		if(currState==State.INIT){
-			
-			moveTowardsDestination(false, dogs[this.id-1]);
-			
-			if(distance(dogs[this.id-1],gatePoint)<=epsilon)
-			{
-				System.out.println("State change to: ALIGNDOG");
-				this.currState=State.MANIPULATESHEEP;
-			}
-		}
-		
-		else if(currState == State.MANIPULATESHEEP){
-			
-			Point current = dogs[this.id-1];
-			int selectedSheep = selectSheep(sheeps, current);
-			manipulateSheep(sheeps[selectedSheep], current);
-		}
-
-		incrementIfClose(dogs,sheeps);
-		
-		return dogs[this.id-1];*/
 	}
 	
 	public void applyCorrection(Point p)
@@ -136,10 +170,18 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 			p.y=0.01;
 		if(p.y>=100)
 			p.y=99.99;
+		
+		//useless
+		if(p.x<0)
+			p.x=0.01;
 	}
 	
 	public void incrementIfClose(Point[] dogs,Point[] sheep)
 	{
+		
+		//TODO: This method was very useful for the one by one strategy, but right now 
+		// we should change code so that we don't have to use this method anymore.
+		
 		for(int i=0;i<tooClose.length;i++)
 		{
 			if(this.id-1==i)
@@ -151,15 +193,14 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 				{
 					tooClose[i]=0;
 					sheepFocus=r.nextInt(sheep.length);
-					while(sheepFocus==i || sheep[sheepFocus].x<50)
+					while(sheepFocus==i || sheep[sheepFocus].x<50) //Randomly keep picking next sheep if you're overlapping
 						sheepFocus=r.nextInt(sheep.length);
-						
 				}
 			}
 			else
 				tooClose[i]=0;
 		}
-		println(String.format("For dog#%d, tooCloseThreshold=%d",this.id-1,tooCloseThreshold));
+		//println(String.format("For dog#%d, tooCloseThreshold=%d",this.id-1,tooCloseThreshold));
 	}
 	
 	public void moveTowardsDestination(boolean extend, Point currPos)
@@ -169,7 +210,9 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 	
 	public void moveTowardsDestination(boolean extend, Point currPos, double hopDistance)
 	{
+		//extend boolean is deprecated, and hence useless
 		double remainingDistance=distance(currPos,currDestination);
+		
 		if(extend)
 			remainingDistance+=1;
 
@@ -217,11 +260,31 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 		double xdiff = sheep.x - gatePoint.x;
 		double ydiff = sheep.y - gatePoint.y;
 		double theta = Math.atan(ydiff/xdiff);
-		double dist = distance(gatePoint, sheep) + 1;
+		double dist = distance(gatePoint, sheep) + 1; //This is why the extend boolean is deprecated in the prev method
 
 		currDestination.y = gatePoint.y + (dist * Math.sin(theta));
 		currDestination.x = gatePoint.x + (dist * Math.cos(theta));
 		
+		/*dbg
+		 * println(String.format("Dog will go to %f,%f",currDestination.x,currDestination.y));
+		println(String.format("Theta for dog=%f, theta for sheep=%f",getThetaFromGate(currPos),getThetaFromGate(sheep)));
+		println(String.format("Difference between the two is=%f",getThetaFromGate(currPos)-getThetaFromGate(sheep)));
+*/
+		//moveTowardsDestination(false, currPos);
+		moveTowardsDestination(true, currPos);
+	}
+	
+	public void chaseSheepOut(Point sheep, Point currPos){
+		
+		double xdiff = sheep.x - gatePoint.x;
+		double ydiff = sheep.y - gatePoint.y;
+		double theta = Math.atan(ydiff/xdiff);
+		double dist = distance(gatePoint, sheep) - 1; //This is why the extend boolean is deprecated in the prev method
+
+		currDestination.y = gatePoint.y + (dist * Math.sin(theta));
+		currDestination.x = gatePoint.x + (dist * Math.cos(theta));
+		
+		println("Chasing out");
 		println(String.format("Dog will go to %f,%f",currDestination.x,currDestination.y));
 		println(String.format("Theta for dog=%f, theta for sheep=%f",getThetaFromGate(currPos),getThetaFromGate(sheep)));
 		println(String.format("Difference between the two is=%f",getThetaFromGate(currPos)-getThetaFromGate(sheep)));
@@ -259,18 +322,6 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 		}
 		
 		sheepFocus = maxSheepIndex;
-		/*if(sheepFocus!=-1 && sheeps[sheepFocus].x>=50)
-			return sheepFocus;
-		
-		int sheepChosen=r.nextInt(sheeps.length);
-		
-		while(sheeps[sheepChosen].x<50)
-		{
-			sheepChosen=r.nextInt(sheeps.length);
-		}
-		
-		sheepFocus=sheepChosen;
-		return sheepChosen;*/
 	}
 	
 	public boolean dogOnLine(Point sheep, Point dog){
@@ -300,13 +351,13 @@ public class ImprovedPlayerOld extends sheepdog.sim.Player {
 	{
 		
 		double dist=Math.sqrt(Math.pow(a.x-b.x, 2)+Math.pow(a.y-b.y, 2));
-		println(String.format("%f,%f - %f,%f=%f",a.x,a.y,b.x,b.y,dist));
+		
 		return dist;
 	}
 	
 	public void println(String s)
 	{
-		//System.out.println(s);
+		System.out.println(s);
 	}
 	
 public boolean[] mapSheep2(Point[] dogs, Point[] sheep) {
@@ -316,9 +367,7 @@ public boolean[] mapSheep2(Point[] dogs, Point[] sheep) {
 	
 	public boolean[] mapSheep2(Point[] dogs, Point[] sheep, int dogSectorId) {
 		
-		//List<Point> sheepsInThisSector=new ArrayList<Point>();
-		//Point[] sheepsToReturn;
-		
+	
 		boolean[] sheepsInSector=new boolean[sheep.length];
 		double angle=180/(1.0*dogs.length);
 		
@@ -327,7 +376,38 @@ public boolean[] mapSheep2(Point[] dogs, Point[] sheep) {
 		
 		int i=0;
 		for(Point p:sheep)
-		{
+		{	
+			double gateDistance=distance(gatePoint,p);
+			
+			if(i<nblacks) //blacksheep
+			{
+				if(closestBlackSheep==Double.MAX_VALUE || gateDistance<=distance(gatePoint,sheep[closestBlackPoint]))
+				{
+					closestBlackSheep=gateDistance;
+					closestBlackPoint=i;
+				}
+				
+				if(furthestBlackSheep==Double.MIN_VALUE || gateDistance>=distance(gatePoint,sheep[furthestBlackPoint]))
+				{
+					furthestBlackSheep=gateDistance;
+					furthestBlackPoint=i;
+				}
+			}
+			else //white
+			{
+				if(closestWhiteSheep==Double.MAX_VALUE || gateDistance<distance(gatePoint,sheep[closestWhitePoint]))
+				{
+					closestWhiteSheep=gateDistance;
+					closestWhitePoint=i;
+				}
+			}
+			
+			//System.out.println(String.format("mode %b blacks %d and current %d",mode,nblacks,i));
+			if(mode && i>=nblacks)
+			{
+				i++;
+				continue;
+			}
 			double angleP=Math.toDegrees(Math.atan((p.y-gatePoint.y)/(p.x-gatePoint.x)));
 			//println(String.format("Angle for sheep %f,%f is %f",p.x,p.y,angleP));
 			//println(String.format("Range for this dog is [%f,%f) %n",currentSectorStart,currentSectorEnd));
@@ -337,15 +417,6 @@ public boolean[] mapSheep2(Point[] dogs, Point[] sheep) {
 		}
 		
 		return sheepsInSector;
-		/*
-		sheepsToReturn=new Point[sheepsInThisSector.size()];
-		int i=0;
-		for(Point p:sheepsInThisSector)
-			sheepsToReturn[i++]=p;
-		
-		printMappingOutput(sheepsToReturn);
-		
-		return sheepsToReturn;*/
 		
 	}
 }

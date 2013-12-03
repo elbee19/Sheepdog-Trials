@@ -1,14 +1,14 @@
 package sheepdog.g9;
 
+import java.util.LinkedList;
+
 public abstract class Strategy {
     int id;
-    int nblacks;
-    boolean mode;
+    LinkedList<Strategy> strategyStack;
 
-    public Strategy(int id, int nblacks, boolean mode) {
-        this.nblacks = nblacks;
-        this.mode = mode;
+    public Strategy(int id, LinkedList<Strategy> strategyStack) {
         this.id = id;
+        this.strategyStack = strategyStack;
     }
 
     // optional

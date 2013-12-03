@@ -1,5 +1,7 @@
 package sheepdog.g9;
 
+import java.util.Arrays;
+
 // a static class for helper methods
 public class PlayerUtils {
     // abuse for constants too
@@ -10,7 +12,6 @@ public class PlayerUtils {
 
     public static double GATEOPENLEFT = 49; // left side of center openning
     public static double GATEOPENRIGHT = 51; // right side of center opening
-
 
     public static final double DOGSPEED = 20;
     public static final double SHEEPWALKSPEED = 1;
@@ -27,6 +28,11 @@ public class PlayerUtils {
 
     public static double vectorLength(double dx, double dy) {
         return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    public static double distance(Point a, Point b) {
+        return Math.sqrt((a.x-b.x) * (a.x-b.x) +
+                         (a.y-b.y) * (a.y-b.y));
     }
 
     // move dog from "from" to "to"
@@ -67,14 +73,50 @@ public class PlayerUtils {
         } 
     }
 
+    // use geometry to compute whether the sheep is on the line defined by dog movement or not
+    public static boolean onTheLine(Point sheep, Point dog, Point lastRoundDog) {
+        double a = distance(sheep, dog);
+        double b = distance(sheep, lastRoundDog);
+        double c = distance(dog, lastRoundDog);
+        double s = (a + b + c) / 2;
+        double area = Math.sqrt(s*(s-a)*(s-b)*(s-c));
+        double distance = 2 * area / a;
+        if (distance <= SMALLDISTANCE)
+            return true;
+        return false;
+    }
 
+    public static boolean[] removeConflict(Point[] sheeps, Point[] dogs, Point[] lastRoundDogs, boolean[] valid, int id) {
+        for (int i = 0; i < sheeps.length; i++) {
+            for (int j = 0; j < dogs.length; j++) {
+                if (onTheLine(sheeps[i], dogs[j], lastRoundDogs[j]))
+                    if (distance(sheeps[i], dogs[j]) < distance(sheeps[i], dogs[id-1]))
+                        valid[i] = false;
+            }
+        }
+        return valid;
+    }
 
     // pick a sheep closest to the gate
-    public static int findASheep(Point[] sheeps) {
+    public static int findASheep(Point[] sheeps, Point[] dogs, Point[] lastRoundDogs, int id) {
+        boolean[] valid = new boolean[sheeps.length];
+        Arrays.fill(valid, true);
+        if (lastRoundDogs != null)
+            valid = removeConflict(sheeps, dogs, lastRoundDogs, valid, id);
+        
+        // highest prority: move back white sheep
+        if (Global.mode) {
+            for (int i = Global.nblacks; i < sheeps.length; i++) {
+                if ((sheeps[i].x < 50) && valid[i])
+                    return i;
+            }
+        }
+
         int minsheep = -1;
         double mindist = Double.MAX_VALUE;
-        for (int i = 0; i < sheeps.length; i++) {
-            if (sheeps[i].x > 50) {
+        int maxIter = Global.mode ? Global.nblacks : sheeps.length;
+        for (int i = 0; i < maxIter; i++) {
+            if (sheeps[i].x > 50 && valid[i]) {
                 double d = distance(sheeps[i], GATE);
                 if (d < mindist && d != 0) { // ignore overlapping dog
                     mindist = d;
@@ -89,25 +131,30 @@ public class PlayerUtils {
         return moveSheep(id, dogs, sheeps);
     }
 
-    public static Point getTargetDogPoint(Point targetSheepPoint) {
-        if (targetSheepPoint.equals(GATE))
-            return new Point(50 + SMALLDISTANCE, 50);
-        double dx = targetSheepPoint.x - GATE.x;
-        double dy = targetSheepPoint.y - GATE.y;
+    public static Point getTargetDogPoint(Point targetSheepPoint, Point targetPoint) {
+        double dx = targetSheepPoint.x - targetPoint.x;
+        double dy = targetSheepPoint.y - targetPoint.y;
         double d = vectorLength(dx, dy);
         double sin = dx/d;
         double cos = dy/d;
-        return new Point(targetSheepPoint.x + SMALLDISTANCE * Math.abs(sin),
+        return new Point(targetSheepPoint.x + SMALLDISTANCE * sin,
                          targetSheepPoint.y + SMALLDISTANCE * cos);
+
+    }
+
+    public static Point getTargetDogPointPushIn(Point targetSheepPoint, Point targetPoint) {
+        double dx = targetSheepPoint.x - targetPoint.x;
+        double dy = targetSheepPoint.y - targetPoint.y;
+        double d = vectorLength(dx, dy);
+        double sin = dx/d;
+        double cos = dy/d;
+        return new Point(targetSheepPoint.x - SMALLDISTANCE * sin,
+                         targetSheepPoint.y + SMALLDISTANCE * cos);
+
     }
 
 
     // The following code is copied from simulator
-
-    public static double distance(Point a, Point b) {
-        return Math.sqrt((a.x-b.x) * (a.x-b.x) +
-                         (a.y-b.y) * (a.y-b.y));
-    }
 
     // pick a closest dog for a particular sheep
     static Point getClosestDog(int sheepId, Point[] dogs, Point[] sheeps) {
@@ -178,7 +225,7 @@ public class PlayerUtils {
         
         // hit the left fence        
         if (nx < 0) {
-            System.err.println("SHEEP HITS THE LEFT FENCE!!!");
+            // System.err.println("SHEEP HITS THE LEFT FENCE!!!");
 
             // move the point to the left fence
             Point temp = new Point(0, now.y);
@@ -191,7 +238,7 @@ public class PlayerUtils {
         }
         // hit the right fence
         if (nx > DIMENSION) {
-            System.err.println("SHEEP HITS THE RIGHT FENCE!!!");
+            // System.err.println("SHEEP HITS THE RIGHT FENCE!!!");
 
             // move the point to the right fence
             Point temp = new Point(DIMENSION, now.y);
@@ -201,7 +248,7 @@ public class PlayerUtils {
         }
         // hit the up fence
         if (ny < 0) {
-            System.err.println("SHEEP HITS THE UP FENCE!!!");
+            // System.err.println("SHEEP HITS THE UP FENCE!!!");
 
             // move the point to the up fence
             Point temp = new Point(now.x, 0);
@@ -211,7 +258,7 @@ public class PlayerUtils {
         }
         // hit the bottom fence
         if (ny > DIMENSION) {
-            System.err.println("SHEEP HITS THE BOTTOM FENCE!!!");
+            // System.err.println("SHEEP HITS THE BOTTOM FENCE!!!");
 
             Point temp = new Point(now.x, DIMENSION);
             double moved = (DIMENSION - now.y);
@@ -224,7 +271,7 @@ public class PlayerUtils {
         
         // hit the middle fence
         if (hitTheFence(now.x, now.y, nx, ny)) {
-            System.err.println("SHEEP HITS THE CENTER FENCE!!!");
+            // System.err.println("SHEEP HITS THE CENTER FENCE!!!");
             //            System.err.println(nx + " " + ny);
             //            System.err.println(ox + " " + oy);
 

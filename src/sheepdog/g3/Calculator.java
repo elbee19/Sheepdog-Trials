@@ -11,7 +11,7 @@ public class Calculator {
   public static final double DOG_MAX_SPEED = 1.95;
   public static final double OPEN_LEFT = 49.0;
   public static final double OPEN_RIGHT = 51.0;
-  public static enum SIDE { WHITE_GOAL_SIDE, BLACK_GOAL_SIDE, MIDDLE };
+  public static enum SIDE { BLACK_GOAL_SIDE, WHITE_GOAL_SIDE, MIDDLE };
   
   public static double getAngleOfTrajectory(Point cur, Point dest) {
       return Math.atan2(dest.y - cur.y,dest.x - cur.x);
@@ -65,9 +65,9 @@ public class Calculator {
   
   public static SIDE getSide(double x) {
     if (x < FIELD_SIZE * 0.5)
-      return SIDE.WHITE_GOAL_SIDE;
-    else if (x > FIELD_SIZE * 0.5)
       return SIDE.BLACK_GOAL_SIDE;
+    else if (x > FIELD_SIZE * 0.5)
+      return SIDE.WHITE_GOAL_SIDE;
     else
       return SIDE.MIDDLE;
 }
@@ -95,7 +95,7 @@ public class Calculator {
   public static ArrayList<Integer> undeliveredWhiteSheep(Point[] sheepToDeliver) {
     ArrayList<Integer> undelivered = new ArrayList<Integer>(sheepToDeliver.length);
     for (int i = 0; i < sheepToDeliver.length; i++) {
-      if (sheepToDeliver[i].x >= FIELD_SIZE * 0.5) {
+      if (getSide(sheepToDeliver[i].x) != SIDE.WHITE_GOAL_SIDE) {
         undelivered.add(i);
       }
     }
@@ -105,7 +105,7 @@ public class Calculator {
   public static ArrayList<Integer> undeliveredBlackSheep(Point[] sheepToDeliver) {
     ArrayList<Integer> undelivered = new ArrayList<Integer>(sheepToDeliver.length);
     for (int i = 0; i < sheepToDeliver.length; i++) {
-      if (sheepToDeliver[i].x >= FIELD_SIZE * 0.5) {
+      if (getSide(sheepToDeliver[i].x) != SIDE.BLACK_GOAL_SIDE) {
         undelivered.add(i);
       }
     }

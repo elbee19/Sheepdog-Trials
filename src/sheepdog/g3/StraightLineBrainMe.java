@@ -8,7 +8,6 @@ public class StraightLineBrainMe extends StraightLineBrain {
 
     public StraightLineBrainMe(int id, boolean advanced, int nblacks) {
         super(id, advanced, nblacks);
-        // TODO Auto-generated constructor stub
     }
 
     @Override

@@ -16,6 +16,20 @@ public class Point {
         y = p.y;
     }
 
+    public double dot(Point p) {
+        return x * p.x + y * p.y;
+    }
+    
+    public Point scale(double d) {
+        x = x * d;
+        y = y * d;
+        return this;
+    }
+
+    public double distance(Point p) {
+        return Math.sqrt((p.x - x)*(p.x - x) + (p.y - y)*(p.y - y));
+    }
+
     public boolean equals(Point o) {
         return o.x == x && o.y == y;
     }
