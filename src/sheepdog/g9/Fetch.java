@@ -4,7 +4,7 @@ import java.util.LinkedList;
 
 public class Fetch extends Strategy {
     public enum FetchStage { MOVETOGATE, MOVETOSHEEP, CHASEBACK, PUSHIN }
-    public static final Point DEFAULTIDLE = new Point(50.01, 0);
+    public static final Point DEFAULTIDLE = new Point(100, 50);
     public String name = "Fetch";
     private FetchStage stage;
     private int sheepId;
@@ -13,12 +13,18 @@ public class Fetch extends Strategy {
     private Point[] lastRoundDogs;
     private int invalidDelay;
     private boolean workOnLeft;
+    private int turnsLeft;
 
-    public Fetch (int id, LinkedList<Strategy> strategyStack, int sheepId, Point targetPoint) {
+    public Fetch (int id, LinkedList<Strategy> strategyStack, int sheepId, Point targetPoint, int turnsLeft) {
         super(id, strategyStack);
         this.sheepId = sheepId;
         this.targetPoint = targetPoint;
+        this.turnsLeft = turnsLeft;
         init();
+    }
+
+    public Fetch (int id, LinkedList<Strategy> strategyStack, int sheepId, Point targetPoint) {
+        this(id, strategyStack, sheepId, targetPoint, -1);
     }
 
     public void init() {
@@ -56,7 +62,7 @@ public class Fetch extends Strategy {
                     stage = FetchStage.MOVETOSHEEP;
                     return move(dogs, sheeps);
                 }
-
+                turnsLeft--;
                 return PlayerUtils.moveDogTo(current, PlayerUtils.GATE);
             case MOVETOSHEEP:
             case CHASEBACK:
@@ -77,12 +83,12 @@ public class Fetch extends Strategy {
                 if (sheepId == -1)
                     for (int i = 0; i < (id - 1); i++) {
                         if (dogs[i].equals(PlayerUtils.GATE))
-                            return current;
+                            return PlayerUtils.moveDogTo(current, DEFAULTIDLE);
                     }
                 // double check for valid sheep target
-                if (sheepId >= 0) {
+                if ((sheepId >= 0) && (turnsLeft < 0) && lastRoundDogs != null) {
                     boolean maybeInvalid = false;
-                    for (int i = 0; i < dogs.length; i++)
+                    for (int i = 0; i < dogs.length; i++) {
                         if (PlayerUtils.onTheLine(sheeps[sheepId], dogs[i], lastRoundDogs[i])) {
                             if (sheeps[sheepId].distance(dogs[i]) < sheeps[sheepId].distance(dogs[id-1]))
                                 maybeInvalid = true;
@@ -90,6 +96,7 @@ public class Fetch extends Strategy {
                                 && (i < (id - 1)))
                                 maybeInvalid = true;
                         }
+                    }
                     if (maybeInvalid)
                         invalidDelay++;
                     else
@@ -103,21 +110,23 @@ public class Fetch extends Strategy {
                     // no sheep to fetch - move out of busy zone
                     if (sheepId == -1)
                         return PlayerUtils.moveDogTo(current, DEFAULTIDLE);
-                    if (sheeps[sheepId].x < PlayerUtils.GATE.x) {
+                    if (sheeps[sheepId].x <= PlayerUtils.GATE.x) {
                         stage = FetchStage.MOVETOGATE;
                         workOnLeft = true;
                         return move(dogs, sheeps);
                     }
                 }
+                turnsLeft--;
                 if ((targetPoint.x != PlayerUtils.GATE.x) && (targetPoint.distance(sheeps[sheepId]) < 1.7))
-                    end = true;
+                    turnsLeft = 0;
                 targetSheepPoint =
                     PlayerUtils.PredictNextMove(sheepId, dogs, sheeps);
+                double distance = (turnsLeft<0)? PlayerUtils.SMALLDISTANCE: 0.01;
                 targetDogPoint =
-                    PlayerUtils.getTargetDogPoint(targetSheepPoint, targetPoint);
+                    PlayerUtils.getTargetDogPoint(targetSheepPoint, targetPoint, distance);
                 return PlayerUtils.moveDogTo(current, targetDogPoint);
             case PUSHIN:
-                end = true;
+                turnsLeft = 0;
                 targetSheepPoint =
                     PlayerUtils.PredictNextMove(sheepId, dogs, sheeps);
                 targetDogPoint =
@@ -127,7 +136,8 @@ public class Fetch extends Strategy {
             return PlayerUtils.moveDogTo(current, DEFAULTIDLE);
         } finally {
             lastRoundDogs = dogs.clone();
-            if (end) {
+            if (turnsLeft == 0) {
+                turnsLeft--;
                 strategyStack.pop();
             }
         }

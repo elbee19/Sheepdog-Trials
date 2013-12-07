@@ -11,29 +11,33 @@ public class Strategy{
 	private Point dog[];
 	private Point newDog[];
 	private Point sheep[];
+	private LinkedList<Integer> orderedSheep;
+	private ArrayList<LinkedList<Integer>> orderedSheeps;
+	private int targSheep[];
+	private int nblacks;
 	private int numDog;
 	private int numSheep;
+	private boolean end;
+	
 	private int strategy;
+	private boolean mode;
 	public Queue<Formation> steps;
 	private boolean initSteps;
+	private boolean initSteps2;
+	private boolean initSteps2b;
 	private int stepsIter;
-	
-	public Strategy(int strategy) {
+	private double rightBound;
+	private boolean initStrat;
+
+	public Strategy(int strategy, boolean mode, int nblacks) {
 		this.dog = null;
 		this.sheep = null;
-		this.strategy = strategy;
-		initSteps = true;
-		stepsIter = 0;
-	}
-
-	public Strategy(Point[] dog, Point[] sheep, int strategy){
-		this.dog = dog;
-		this.sheep = sheep;
-		this.strategy = strategy;
-		this.numDog = dog.length;
-		this.numSheep = sheep.length;
-		initSteps = true;
-		stepsIter = 0;
+		this.strategy = 1;
+		this.mode = mode;
+		this.nblacks = nblacks;
+		initSteps();
+		stepsIter = 0;		
+		initStrat = true;
 	}
 
 	public void updateInfo(Point[] dog, Point[] sheep){
@@ -41,8 +45,63 @@ public class Strategy{
 		this.sheep = sheep;
 		this.numDog = dog.length;
 		this.numSheep = sheep.length;
+
+		
+		//strategyTwo();
+		
+		if(mode && initStrat){
+			if (numDog == 1 && (numSheep > 100 && numSheep < 300) && (nblacks > 50 && nblacks < 110)) {
+				strategy = 4;
+			}
+			else {
+				strategy = 2;
+			}
+			initStrat = false;
+		}
+		else if(initStrat) {
+			if(numDog == 1)
+				strategy = 4;
+			else if(numDog <= 20)
+				strategy = 3;
+			else if (numDog > 50)
+				strategy = 2;
+			else
+				strategy = 1;
+			initStrat = false;
+		}
+		
+		if(strategy == 1)
+			strategyOne();
+		else if(strategy == 2)
+			strategyTwo();
+		else if (strategy == 3)
+			strategyThree();
+		else if(strategy == 4)
+			strategyFour();
+
 	}
 	
+	public void initSteps(){
+		this.initSteps = true;
+		this.initSteps2 = true;
+		this.initSteps2b = true;
+		this.rightBound = 100;
+		this.end = true;
+	}
+	
+	//toggle = 0 (black), 1 (white), 2(all)
+	public int sheepsOnRight(int toggle){
+		int start = sheepStart(toggle);
+		int stop = sheepStop(toggle);
+		
+		int count = 0;
+		for(int i=start; i<stop; i++){
+			if(sheep[i].x > 50)
+				count++;
+		}
+		return count;
+	}
+
 	public Point getDogPos(int id){
 		return newDog[id-1];
 	}
@@ -55,156 +114,552 @@ public class Strategy{
 		}
 		return furthest;
 	}
-	
+
+	public double farthestSheepDist() {
+		double max = Formation.distance(sheep[0], new Point(50., 50.));
+		for(int i=1; i<sheep.length; i++) {
+			double curr = Formation.distance(sheep[i], new Point(50., 50.));
+			if(curr > max)
+				max = curr;
+		}
+		return max;
+	}
+
 	//Effective for large numbers of sheeps to herd.
 	public void strategyOne() {
+		//System.out.println("In Strat1");
 		Formation exec = null;
 		if(initSteps) {
 			steps = new LinkedList<Formation>();
 
 			//Check boolean
-			double spacing = (numDog/2)*2.5;
+			double spacing = (numDog/2-1)*3.5;
 				if(spacing > 50)
 					spacing = 50;
-
+				
 			int sweeps = (int)Math.ceil(50./spacing);
 
 			//dot
 			steps.add(new Formation(new double[]{50.0, 50.0}, Formation.Dot, dog, 20.0));
 			
+			
 			//Sandwich
+			if(numDog % 2 == 1)
+				sweeps--;
+			
 			for(int i=0; i<sweeps-1; i++){
 				steps.add(new Formation(new double[]{100.0, spacing, 50. + i*spacing}, Formation.Sandwich, dog, 20.0));
 				steps.add(new Formation(new double[]{4.0, spacing, 50. + i*spacing}, Formation.Sandwich, dog, 2.0));
 			}
-
+			
 			steps.add(new Formation(new double[]{100.0, spacing, 100 - spacing}, Formation.Sandwich, dog, 20.0));
 			steps.add(new Formation(new double[]{4.0, spacing, 100 - spacing}, Formation.Sandwich, dog, 2.0));
 			
 			//VPusher -> Vertical Line
 			steps.add(new Formation(new double[]{100.0}, Formation.VPusher, dog, 20.0));
-			steps.add(new Formation(new double[]{50. + numDog -2}, Formation.VPusher, dog, 2.0));
+			if(numDog % 2 == 1){
+				steps.add(new Formation(new double[]{50. + numDog - 1}, Formation.VPusher, dog, 2.0));
+			}else{
+				steps.add(new Formation(new double[]{50. + numDog -1}, Formation.VPusher, dog, 2.0));
+			}
+		
+			
 			steps.add(new Formation(new double[]{50.0, 50 - spacing/2, spacing}, Formation.Vertical, dog, 1.0));
 			initSteps = false;
 		}
 		
-		if( (exec = steps.peek()) == null)
+		//System.out.println(steps.toString());
+		
+		if( (exec = steps.peek()) == null) {
+			//System.out.println("About to Return");
 			return;
-		
-		double speed = 1.0;
-		double offset = 0.0;
-		
-		if(!exec.isDone())
-			newDog = exec.getMove(dog);
-		else {
-			steps.remove();
-			
-			if(steps.peek() == null)
-				initSteps = true;
 		}
 		
-		/*
-		if(initSteps) {
-			stepsIter = 0;
-			strategySteps = new boolean[7];
-			for(int i=0; i < strategySteps.length; i++)
-				strategySteps[i] = false;
-			initSteps = false;
+		if(!exec.isDone()){
+			//System.out.println("Exec is not done"+ exec.formType);
+			newDog = exec.getMove(dog);
+		}
+		else {
+			//System.out.println("Exec is done" + exec.formType);
+			steps.remove();
+			if(steps.peek() == null) {
+				initSteps = true;
+				if(sheepsOnRight(0) <= numDog) {
+					strategy = 2;
+					initSteps2 = true;
+				}
+				//strategyTwo();
+			}
+		}
+		
+		//System.out.println("Got to the end");
+	}		
+
+	public void strategyTwo() {
+		//System.out.println("In strat2");
+		boolean right = true;
+		boolean left = false;
+		boolean phase2 = false; //this phase is to grab white sheep from left to right
+		//determine if phase2
+		if(mode && orderedSheepInit(0, right).size() == 0){
+			phase2 = true;
 		}
 
-		//Formation Zero
-		Formation zero = new Formation(50.0, 0, dog);
-		if(!strategySteps[0] && !zero.isDone()) {
-			speed = 20.0;
-			newDog = zero.getMove(dog, speed);
-			return;
-		}
-		else if(!strategySteps[0]) {
-			strategySteps[stepsIter] = true;
-			stepsIter++;
-		}
+		if(!phase2){
+			//set dogs to go to dot
+			initSteps2b = true;
+			if(initSteps2) {
 		
-		//Formation One
-		Formation one = new Formation(100.0, 1, dog);
-		if(!strategySteps[1] && !one.isDone()) {
-			if(getFurthestDog().x > 90.0)
-				speed = 5.0;
-			else
-				speed = 20.0;	//Move dog into Line formation, set it at maximum speed. Can Jiacheng make the variable public in Sheepdog.java?
-			newDog = one.getMove(dog, speed);
-			System.out.println("Formation1, 100");
-			return;
-		}
-		else if(!strategySteps[1])  {
-			strategySteps[stepsIter] = true;
-			stepsIter++;
-		}
-		
-		//Formation One
-		Formation one2 = new Formation(75.0, 1, dog);
-		if(!strategySteps[2] && !one2.isDone()) {
-			speed = 1.0;	//Move dog into Line formation, set it at maximum speed. Can Jiacheng make the variable public in Sheepdog.java?
-			newDog = one2.getMove(dog, speed);
-			System.out.println("Formation1, 75");
-			return;
-		}
-		else if(!strategySteps[2]) {
-			strategySteps[stepsIter] = true;
-			stepsIter++;
-		}
-		
-		//Formation Two. 
-		Formation two = new Formation(100.0, 2, dog);
-		if(!strategySteps[3] && !two.isDone()) {
-			speed = 20.;
-			newDog = two.getMove(dog, speed);
-			System.out.println("Formation2, 100");
-			return;
-		}
-		else if(!strategySteps[3]) {
-			strategySteps[stepsIter] = true;
-			stepsIter++;
-		}
-		
-		//Formation Two.
-		Formation two2 = new Formation(4, 2, dog);
-		if(!strategySteps[4] && !two2.isDone()) {
-			speed = 1.0;
-			newDog = two2.getMove(dog, speed);
-			return;
-		}
-		else if(!strategySteps[4]) {
-			strategySteps[stepsIter] = true;
-			stepsIter++;
-		}
-		
-		//Formation Three
-		Formation three = new Formation(75.0, 3, dog);
-		if(!strategySteps[5] && !three.isDone()) {
-			speed = 20.;
-			newDog = three.getMove(dog, speed);
-			return;
-		}
-		else if(!strategySteps[5]) {
-			strategySteps[stepsIter] = true;
-			stepsIter++;
-		}
-		
-		//Formation Three
-		Formation three2 = new Formation(50.0, 3, dog);
-		if(!strategySteps[6] && !three2.isDone()) {
-			speed = 3.0;
-			newDog = three2.getMove(dog, speed);
-			return;
-		}
-		else if(!strategySteps[6]) {
-			strategySteps[stepsIter] = true;
-			stepsIter++;
-		}
-		
-		if(strategySteps[6])
-			initSteps = true;
+				steps = new LinkedList<Formation>();
+				
+				//toggle 0=black, 1=white, 2=all
+				if(mode)
+					orderedSheep = orderedSheepInit(0, right);
+				else
+					orderedSheep = orderedSheepInit(2, right);
+				
+				targSheep = new int[numDog];
+				
+				for(int i=0; i < targSheep.length; i++) {
+					if(orderedSheep.peek() != null){
+						if(mode)
+							targSheep[i] = Integer.valueOf(orderedSheep.pollLast());
+						else
+							targSheep[i] = Integer.valueOf(orderedSheep.poll());
+					}
+					else
+						targSheep[i] = targSheep[i-1];
+				}
+				steps.add(new Formation(dog, oneOnOne(targSheep, right)));
+				initSteps2 = false;
+			}
+	
+			//call getMove for oneOnOne
+			steps.peek().formation = oneOnOne(targSheep, right);
+			newDog = steps.peek().getMove(dog);
 			
-		*/
+			for(int i=0; i < targSheep.length; i++) {
+				if(sheep[targSheep[i]].x < 50) {
+					orderedSheep = orderedSheepUpdate(orderedSheep, right);
+					if(orderedSheep.size() > 0){
+						if(mode)
+							targSheep[i] = Integer.valueOf(orderedSheep.pollLast());
+						else
+							targSheep[i] = Integer.valueOf(orderedSheep.poll());
+					}else{
+						if(mode)
+							targSheep[i] = orderedSheepInit(0, right).pollLast();
+						else
+							targSheep[i] = orderedSheepInit(2, right).poll();
+					}
+				}
+			}
+		}
+		if(phase2){ //start phase2
+			initSteps2 = true;
+			if(initSteps2b){
+				steps = new LinkedList<Formation>();
+				
+				//all dogs stack ontop of each other
+				targSheep = new int[numDog];
+				orderedSheep = orderedSheepInit(1, left);
+				targSheep[0] = Integer.valueOf(orderedSheep.poll());
+				for(int i=1; i<numDog; i++)
+					targSheep[i] = targSheep[0];
+				steps.add(new Formation(dog, oneOnOne(targSheep, left)));
+				initSteps2b = false;
+			}
+			
+			steps.peek().formation = oneOnOne(targSheep, left);
+			newDog = steps.peek().getMove(dog);
+			
+			if(sheep[targSheep[0]].x > 50) {
+				orderedSheep = orderedSheepUpdate(orderedSheep, left);
+				if(orderedSheep.size() > 0)
+					targSheep[0] = Integer.valueOf(orderedSheep.poll());
+			}
+			for(int i=1; i<targSheep.length; i++){
+				targSheep[i] = targSheep[0];
+			}
+		}
+	}
+
+	public void strategyThree() {		
+		boolean right = true;
+		boolean left = false;
+		boolean phase2 = false; //this phase is to grab white sheep from left to right
+		
+		//detect 2nd phase
+		if(mode && orderedSheepInit(0, right).size() == 0){
+			phase2 = true;
+		}
+		
+		if(!phase2){
+			initSteps2b = true;
+
+			steps = new LinkedList<Formation>();
+
+			//initialize orderedSheeps
+			orderedSheeps = new ArrayList<LinkedList<Integer>>();
+			for(int i=0; i<numDog; i++){
+				orderedSheeps.add(new LinkedList<Integer>());
+			}
+				
+			//assign sheeps to dogs based on angle to (50, 50)
+			//toggle 0=black, 1=white, 2=all
+			int start, stop;
+			if(mode){
+				start = sheepStart(0);
+				stop = sheepStop(0);
+			}else{
+				start = sheepStart(2);
+				stop = sheepStop(2);
+			}
+			for(int i=start; i<stop; i++){
+				double angle = Math.atan2(sheep[i].x - 50., sheep[i].y - 50.) * 180 / Math.PI;
+				double perAngle = 180. / numDog;
+				int dogIndex = (int)(angle/perAngle);
+				if(sheep[i].x > 50)
+					orderedSheeps.get(dogIndex).add(i);
+			}
+		
+			//sort each sheepList in orderedSheeps
+			//assign sheep from each list to dog
+			targSheep = new int[numDog];
+			for(int i=0; i < numDog; i++) {
+				orderedSheeps.set(i, orderedSheepUpdate(orderedSheeps.get(i), right));
+				if(orderedSheeps.get(i).size() > 0){
+					targSheep[i] = Integer.valueOf(orderedSheeps.get(i).poll());
+				}else{
+						if(mode)
+							targSheep[i] = orderedSheepInit(0, right).pollLast();
+						else
+							targSheep[i] = orderedSheepInit(2, right).pollLast();
+				}
+			}
+			steps.add(new Formation(dog, oneOnOne(targSheep, right)));
+	
+			//call getMove for oneOnOne
+			steps.peek().formation = oneOnOne(targSheep, right);
+			newDog = steps.peek().getMove(dog);
+			
+		}
+		if(phase2){ //start phase2
+			initSteps2 = true;
+			if(initSteps2b){
+				steps = new LinkedList<Formation>();
+				
+				//all dogs stack ontop of each other
+				targSheep = new int[numDog];
+				orderedSheep = orderedSheepInit(1, left);
+				targSheep[0] = Integer.valueOf(orderedSheep.poll());
+				for(int i=1; i<numDog; i++)
+					targSheep[i] = targSheep[0];
+				steps.add(new Formation(dog, oneOnOne(targSheep, left)));
+				initSteps2b = false;
+			}
+			
+			steps.peek().formation = oneOnOne(targSheep, left);
+			newDog = steps.peek().getMove(dog);
+		
+			if(sheep[targSheep[0]].x > 50) {
+				orderedSheep = orderedSheepUpdate(orderedSheep, left);
+				if(orderedSheep.size() > 0)
+					targSheep[0] = Integer.valueOf(orderedSheep.poll());
+			}
+			for(int i=1; i<targSheep.length; i++){
+				targSheep[i] = targSheep[0];
+			}
+		}
+
+	}
+	
+	public void strategyFour() {		
+		boolean right = true;
+		boolean left = false;
+		boolean phase2 = false; //this phase is to grab white sheep from left to right
+	
+		//detect 2nd phase
+		if(mode && orderedSheepInit(0, right).size() == 0){
+			phase2 = true;
+		}
+		
+		if(!phase2){
+			initSteps2b = true;
+
+			steps = new LinkedList<Formation>();
+			int div = 2;
+
+			//initialize orderedSheeps
+			orderedSheeps = new ArrayList<LinkedList<Integer>>();
+			for(int i=0; i<div; i++){
+				orderedSheeps.add(new LinkedList<Integer>());
+			}
+				
+			//assign sheeps to dogs based on angle to (50, 50)
+			//toggle 0=black, 1=white, 2=all
+			int start, stop;
+			if(mode){
+				start = sheepStart(0);
+				stop = sheepStop(0);
+			}else{
+				start = sheepStart(2);
+				stop = sheepStop(2);
+			}
+
+			boolean notEmpty = false;
+
+			while(!notEmpty){
+/*					div = (int)Math.ceil(rightBound/1.5) + 1;
+					orderedSheeps = new ArrayList<LinkedList<Integer>>();
+					for(int i=0; i<div; i++)
+						orderedSheeps.add(new LinkedList<Integer>());
+*/
+
+				for(int i=start; i<stop; i++){
+					double angle = Math.atan2(sheep[i].x - 50., sheep[i].y - 50.) * 180 / Math.PI;
+					double perAngle = 180. / div;
+					int dogIndex = (int)(angle/perAngle);
+//					if(Formation.distance(sheep[i], new Point(50., 50.)) > rightBound && sheep[i].x > 50.)
+					if( sheep[i].x > rightBound)
+						orderedSheeps.get(dogIndex).add(i);
+				}
+
+				for(int i=0; i<div; i++){
+					if(orderedSheeps.get(i).size() > 0)
+						notEmpty = true;
+				}
+				if(!notEmpty)
+					rightBound -= 10;
+			}
+
+			//sort each sheepList in orderedSheeps
+			//assign sheep from each list to dog
+			targSheep = new int[numDog];
+
+			for(int i=0; i < div; i++) {
+				orderedSheeps.set(i, orderedSheepUpdateSpecific(orderedSheeps.get(i), right, 50.));
+			}
+
+			int offset = 0;
+
+			boolean set = false;
+			for(int i=0; i< div; i++){
+
+//				if(end){
+//					offset = div -1;
+//				}else
+					offset = i*2;
+
+				if(orderedSheeps.get(offset - i).size() > 0){
+					targSheep[0] = Integer.valueOf(orderedSheeps.get(offset - i).poll());
+					set = true;
+					if(i == 0 && orderedSheeps.get(offset-i).size() == 0){
+						this.end = true;
+					}else if(i == div-1 && orderedSheeps.get(offset-i).size() == 0){
+						this.end = false;
+					}
+					break;
+				}
+			}
+
+			int sheepOnRight;
+				if(mode)
+					sheepOnRight = orderedSheepInit(0, right).size();
+				else
+					sheepOnRight = orderedSheepInit(2, right).size();
+
+
+			if(!set || sheepOnRight < 10){
+				if(mode)
+					targSheep[0] = orderedSheepInit(0, right).pollLast();
+				else
+					targSheep[0] = orderedSheepInit(2, right).pollLast();
+			}
+			
+			steps.add(new Formation(dog, oneOnOne(targSheep, right)));
+	
+			//call getMove for oneOnOne
+			steps.peek().formation = oneOnOne(targSheep, right);
+			newDog = steps.peek().getMove(dog);
+			
+		}
+		if(phase2){ //start phase2
+			initSteps2 = true;
+			if(initSteps2b){
+				steps = new LinkedList<Formation>();
+				
+				//all dogs stack ontop of each other
+				targSheep = new int[numDog];
+				orderedSheep = orderedSheepInit(1, left);
+				targSheep[0] = Integer.valueOf(orderedSheep.poll());
+				for(int i=1; i<numDog; i++)
+					targSheep[i] = targSheep[0];
+				steps.add(new Formation(dog, oneOnOne(targSheep, left)));
+				initSteps2b = false;
+			}
+			
+			steps.peek().formation = oneOnOne(targSheep, left);
+			newDog = steps.peek().getMove(dog);
+		
+			if(sheep[targSheep[0]].x > 50) {
+				orderedSheep = orderedSheepUpdate(orderedSheep, left);
+				if(orderedSheep.size() > 0)
+					targSheep[0] = Integer.valueOf(orderedSheep.poll());
+			}
+			for(int i=1; i<targSheep.length; i++){
+				targSheep[i] = targSheep[0];
+			}
+		}
+
+	}
+
+	public double leftMost(double x){
+		double currLeft = 100.;
+		for(int i=0; i<numSheep; i++){
+			if(sheep[i].x < currLeft && sheep[i].x >= x)
+				currLeft = sheep[i].x;
+		}
+		return currLeft;
+	}
+
+	public LinkedList<Integer> orderedSheepInit(int toggle, boolean right){
+		int start = sheepStart(toggle);
+		int stop = sheepStop(toggle);
+		
+		//distance of sheep to center of map
+		double dist[] = new double[numSheep];
+		for(int i=0; i<dist.length; i++){
+			dist[i] = Formation.distance(sheep[i], new Point(50., 50.));
+		}
+		LinkedList<Integer> oSheep = new LinkedList<Integer>();
+		//sort into linked list
+		for(int i=start; i<stop; i++){
+			//if list is empty, add
+			if(oSheep.size() == 0 &&
+					((right && sheep[i].x > 50.) || (!right && sheep[i].x < 50.))){
+				oSheep.add(i);
+			}else{
+				for(int j=0; j<oSheep.size(); j++){
+					if((right && sheep[i].x > 50.) || (!right && sheep[i].x < 50.)){
+						//if list is not empty, add if greater
+						if(dist[i] > dist[oSheep.get(j)]){
+							oSheep.add(j, i);
+							break;
+						}
+						//if list is not empty, add if less than everything
+						if(j == oSheep.size()-1){
+							oSheep.add(i);
+							break;
+						}
+					}else{
+				//		System.out.println("uh oh: "+sheep[i].x);
+					}
+				}
+			}
+		}
+		return oSheep;
+	}
+
+	public LinkedList<Integer> orderedSheepUpdate(LinkedList<Integer> uSheep, boolean right){
+		return orderedSheepUpdateSpecific(uSheep, right, 50.);
+	}
+
+	public LinkedList<Integer> orderedSheepUpdateSpecific(LinkedList<Integer> uSheep, boolean right, double line){
+		//distance of sheep to center of map
+		double dist[] = new double[numSheep];
+		for(int i=0; i<dist.length; i++){
+			dist[i] = Formation.distance(sheep[i], new Point(50., 50.));
+		}
+		LinkedList<Integer> oSheep = new LinkedList<Integer>();
+		
+		//if uSheep is empty; return empty list
+		if(uSheep.size() == 0)
+			return oSheep;
+
+		//sort into linked list
+		oSheep.add(uSheep.pop());
+		while(uSheep.size() > 0){
+			int i = uSheep.pop();
+			for(int j=0; j<oSheep.size(); j++){
+				if((right && sheep[i].x > line) || (!right && sheep[i].x < line)){
+					if(dist[i] > dist[oSheep.get(j)]){
+						oSheep.add(j, i);
+						break;
+					}
+					if(j == oSheep.size()-1){
+						oSheep.add(i);
+						break;
+					}
+				}else{
+			//		System.out.println("hi " +sheep[i].x);
+				}
+			}
+		}
+		return oSheep;
+	}
+	
+	public Point[] oneOnOne(int[] sheepIndex, boolean right){
+		this.dog = dog;
+		double delta = 0.05;
+
+		//targetSheeps
+		Point[] tSheep = new Point[numDog];
+		for(int i=0; i<numDog; i++)
+			tSheep[i] = new Point(sheep[sheepIndex[i]].x, sheep[sheepIndex[i]].y);	
+
+		//final Position of dogs
+		Point[] fPos = new Point[numDog];
+		for(int i=0; i<numDog; i++){
+
+			//set delta to avoid not hopping over sheep
+			if(dog[i].x < sheep[sheepIndex[i]].x)
+				delta = (right ? 2.5 : 1);
+			else
+				delta = (right ? 1 : 2.5);
+			
+			Point vector = new Point(tSheep[i].x - 50., tSheep[i].y - 50.);
+			Point origin = new Point(0, 0);
+			double dist = Formation.distance(origin, vector);
+			double factor = (dist + delta) / dist;
+	
+			fPos[i] = new Point(50. + vector.x * factor, 50. + vector.y * factor);
+			//set boundary
+			if(right){
+				if(fPos[i].x < 50)
+					fPos[i].x = 50;
+			}else{
+				if(fPos[i].x > 50)
+					fPos[i].x = 50;
+			}
+			if(fPos[i].x > 100)
+				fPos[i].x = 100;
+			if(fPos[i].y > 100)
+				fPos[i].y = 100;
+			if(fPos[i].y < 0)
+				fPos[i].y = 0;
+		}
+		return fPos;
+	}
+	
+	//returns index of sheepStart
+	//0 = black, 1 = white, 2 = all
+	public int sheepStart(int i){
+		if(i==0)
+			return 0;
+		else if(i==1)
+			return nblacks;
+		else
+			return 0;
+	}
+	//returns index of sheepStop
+	//0 = black, 1 = white, 2 = all
+	public int sheepStop(int i){
+		if(i==0)
+			return nblacks;
+		else if(i==1)
+			return sheep.length;
+		else
+			return sheep.length;
 	}
 }

@@ -166,7 +166,7 @@ public class SteinerBrain extends sheepdog.g3.DogBrain {
         double anglePointToSheep = Calculator.getAngleOfTrajectory(SteinerPoint, targetSheep);
         Point idealLocation = Calculator.getMoveInDirection(targetSheep, anglePointToSheep, DOG_SHEEP_MIN_DIST);
         Point moveLocation = Calculator.getMoveTowardPoint(me, idealLocation);
-        makePointValid(moveLocation);
+        makePointValid(moveLocation, me);
         return moveLocation;	
 	}
 	

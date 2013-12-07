@@ -49,7 +49,7 @@ public class Player extends sheepdog.sim.Player {
         if (move_num==1 || move_num%10==0) {
         	Point[] targets = Util.sortByAngle(sheepOnRight);
         	targets=Util.currentDogTargetsKevin(targets, id, dogs.length);
-        	System.out.println(id+" targets "+targets.length);
+        	//System.out.println(id+" targets "+targets.length);
         	int sheepid=-1;
         	targetID.clear();
         	for (int i = 0; i < targets.length; i++)
@@ -132,9 +132,9 @@ public class Player extends sheepdog.sim.Player {
 		//sheeps = Util.sortByAngle(sheeps);
 		//sheeps=Util.currentDogTargets(sheeps, id, dogs.length);
 		
-        System.out.println(id+" targets sheeps "+sheeps.length);
+        //System.out.println(id+" targets sheeps "+sheeps.length);
         for (int i = 0; i < sheeps.length; i++) {
-			System.out.println(sheeps[i].x+" "+sheeps[i].y);
+			//System.out.println(sheeps[i].x+" "+sheeps[i].y);
 		}
     	if(dogs[id-1].x<50.0-epsilon)
     		return initial_dog_move(dogs[id-1]);   

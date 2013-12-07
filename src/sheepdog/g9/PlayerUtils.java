@@ -24,6 +24,7 @@ public class PlayerUtils {
     public static final double CLUSTERDISTANCE = 1;
     // Used for fetch strategy
     public static final double SMALLDISTANCE = 0.001;
+    public static final double TREEDISTANCE = 0.001;
 
 
     public static double vectorLength(double dx, double dy) {
@@ -50,25 +51,15 @@ public class PlayerUtils {
                 x = 100;
             if (y > 100)
                 y = 100;
-            return new Point(x, y);
-        } 
-    }
+            if (x < 0)
+                x = 0;
+            if (y < 0)
+                y = 0;
+            if ((from.x > 50) && x < 50)
+                x = 50;
+            if ((from.x < 50) && x > 50)
+                x = 50;
 
-    // move dog from "from" to "to"
-    public static Point moveDogToWithSpeed(Point from, Point to, double dogspeed) {
-        double dx = to.x - from.x;
-        double dy = to.y - from.y;
-        double d = vectorLength(dx, dy);
-        if (d <= dogspeed * TIMEUNIT)
-            return to;
-        else {
-            double scale = (dogspeed * TIMEUNIT - SMALLDISTANCE)/ d;
-            double x = from.x + scale * dx;
-            double y = from.y + scale * dy;
-            if (x > 100)
-                x = 100;
-            if (y > 100)
-                y = 100;
             return new Point(x, y);
         } 
     }
@@ -117,7 +108,7 @@ public class PlayerUtils {
         int maxIter = Global.mode ? Global.nblacks : sheeps.length;
         for (int i = 0; i < maxIter; i++) {
             if (sheeps[i].x > 50 && valid[i]) {
-                double d = distance(sheeps[i], GATE);
+                double d = distance(sheeps[i], dogs[id-1]);
                 if (d < mindist && d != 0) { // ignore overlapping dog
                     mindist = d;
                     minsheep = i;
@@ -131,14 +122,14 @@ public class PlayerUtils {
         return moveSheep(id, dogs, sheeps);
     }
 
-    public static Point getTargetDogPoint(Point targetSheepPoint, Point targetPoint) {
+    public static Point getTargetDogPoint(Point targetSheepPoint, Point targetPoint, double distance) {
         double dx = targetSheepPoint.x - targetPoint.x;
         double dy = targetSheepPoint.y - targetPoint.y;
         double d = vectorLength(dx, dy);
         double sin = dx/d;
         double cos = dy/d;
-        return new Point(targetSheepPoint.x + SMALLDISTANCE * sin,
-                         targetSheepPoint.y + SMALLDISTANCE * cos);
+        return new Point(targetSheepPoint.x + distance * sin,
+                         targetSheepPoint.y + distance * cos);
 
     }
 

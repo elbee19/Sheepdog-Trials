@@ -1,0 +1,9 @@
+
+[SUCCESS] The player achieves the goal in 171 ticks.
+\n
+[SUCCESS] The player achieves the goal in 145 ticks.
+\n
+\n
+\n
+\n
+\n

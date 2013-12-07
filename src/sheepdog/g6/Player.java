@@ -16,6 +16,7 @@ public class Player extends sheepdog.sim.Player {
     public ArrayList<ArrayList<Integer>> sheepsForDog;
     public boolean partitionOnce = true;
     public boolean useTempDistance;
+    public boolean finalMode;
     public final double MAX_SPEED = 1.98;
     public final Point MIDPOINT = new Point(50, 50);
     public int ticks;
@@ -27,14 +28,17 @@ public class Player extends sheepdog.sim.Player {
         this.nblacks = nblacks;
         this.mode = mode;
         this.state = 0;
-        this.useTempDistance = false;
 	this.ticks = 0;
+	this.finalMode = false;
+        this.useTempDistance = false;
     }
     
     // Return: the next position
     // my position: dogs[id-1]
     public Point move(Point[] dogs, Point[] sheeps) {
+    //System.out.println("state:" + this.state);
 	this.ndogs = dogs.length;
+    sheeps=updateToNewSheep(sheeps,dogs);
 	if (ticks++ % 20 == 0) {
 	    sheepsForDog = new ArrayList<ArrayList<Integer>>();
 	    for (int i = 0; i < dogs.length; i++) {
@@ -42,33 +46,47 @@ public class Player extends sheepdog.sim.Player {
 	    }
 	    this.partitions = new ArrayList<ArrayList<Point>>();
 	    for (int i = 0; i < dogs.length; i++) {
-		System.out.println(sheepsForDog.get(i).size());
+		//System.out.println(sheepsForDog.get(i).size());
 	    }
 	    createPartitions(dogs, sheeps);
-	}
-        sheeps=updateToNewSheep(sheeps,dogs);
-	
+	}	
 	if (!partitionOnce) {
 	    this.partitions = new ArrayList<ArrayList<Point>>();
 	}
         setPos(dogs[id-1]);
         Point next = new Point();
-	if (mode && areAllBlacksLeftOfGate(sheeps)) {
+	if (finalMode || mode && areAllBlacksLeftOfGate(sheeps)) {
+	    finalMode = true;
+	    if (!areAllBlacksLeftOfGate(sheeps)) {
+		if (isClosestTo(dogs, MIDPOINT) && dogs[id-1].x < 50 || dogs[id-1].x >= 50) {
+		    Point black = getBlackLeftOfGate(sheeps);
+		    Point dest = chaseTowards(black, MIDPOINT, dogs);
+		    return move_straight(dogs[id-1], dest, MAX_SPEED);
+		}
+	    }
 	    ArrayList<Point> whiteSheep = getAllWhitesLeftOfGate(sheeps);
-	    Point dest = dogs[id-1].x > 50 ? MIDPOINT : chaseTowards(whiteSheep.get(id % whiteSheep.size()), MIDPOINT, dogs);
+	    Point dest = null;
+	    if (whiteSheep.size()!=0){
+	    dest = dogs[id-1].x > 50 ? MIDPOINT : chaseTowards(whiteSheep.get(id % whiteSheep.size()), MIDPOINT, dogs);
+	    }
+	    else {
+	    	dest = new Point();
+	    	dest.x = dogs[id-1].x;
+	    	dest.y = dogs[id-1].y;
+	    }
 	    Point tmp=move_straight(dogs[id-1], dest, MAX_SPEED);
 	    if (dogs[id-1].x<50) {
         	if (tmp.x>50 && (dogs[id].y<49 ||dogs[id].y>51))
-        			tmp.x=50;
-        }
-        if (dogs[id-1].x>50) {
+		    tmp.x=dogs[id].x;
+	    }
+	    if (dogs[id-1].x>50) {
         	if (tmp.x<50 && (dogs[id].y<49 ||dogs[id].y>51))
-        			tmp.x=50;
-        }
+		    tmp.x=dogs[id].x;
+	    }
 	    return tmp;
 	}
-        if (sheeps.length / dogs.length >= 8 || (mode && nblacks/dogs.length>=8)) {
-            System.out.println("in the baseline mode");
+        if (true){
+            //System.out.println("in the baseline mode");
             Point current = dogs[id - 1];
             double length;
             double next_x = 0;
@@ -92,24 +110,25 @@ public class Player extends sheepdog.sim.Player {
                 }
                 next = this.many_dogs_strategy(dogs, sheeps);
                 movedPastThresholdDistance = false;
-                System.out.println("state:" + this.state);
             }
         } else {
             next = baseline(dogs, sheeps);
+            //System.out.printf("the value of next (%f, %f)",next.x, next.y);
         }
         if (dogs[id-1].x<50) {
-        	if (next.x>50 && (dogs[id].y<49 ||dogs[id].y>51))
+        	//System.out.println("in the fix part");
+        	if (next.x>50 && (dogs[id-1].y<49 ||dogs[id-1].y>51))
         			next.x=50;
         }
         if (dogs[id-1].x>50) {
-        	if (next.x<50 && (dogs[id].y<49 ||dogs[id].y>51))
+        	if (next.x<50 && (dogs[id-1].y<49 ||dogs[id-1].y>51))
         			next.x=50;
         }
         return next;
     }
 
     public Point baseline(Point[] dogs, Point[] sheeps) {
-    System.out.println("in the baseline mode");
+    //System.out.println("in the baseline mode");
     Point current = dogs[id - 1];
     double length;
     double next_x = 0;
@@ -129,53 +148,64 @@ public class Player extends sheepdog.sim.Player {
         next_x = current.x + ((50.5 - current.x) / length) * 1.99;
         next_y = current.y + ((50.5 - current.y) / length) * 1.99;
 
-    } else  {
+    } 
+    else  {
         for (int i = 0; i < targetNum; i++) {
             if ((i % dogs.length) == id - 1 & sheeps[i].x > 50) {
-                // if (sheeps[i].x<98 && sheeps[i].y<98){
-                // token[i]=true;
-                target = true;
-                length = Math.sqrt(Math.pow((current.x - sheeps[i].x), 2)
-                           + Math.pow((current.y - sheeps[i].y), 2));
-                if (length > 0.5) {
-                    System.out.printf("here it is dog %d", id);
-                    System.out.printf("we are chasing sheep %d", i);
-                    double offsetx;
-                    double offsety;
-                    double tmplength;
-                    tmplength = Math.sqrt(Math.pow((sheeps[i].x - 50), 2)
-                                  + Math.pow((sheeps[i].y - 50), 2));
-                    offsetx = (sheeps[i].x - 50) * (1 + tmplength)
-                        / tmplength + 50;
-                    offsety = (sheeps[i].y - 50) * (1 + tmplength)
-                        / tmplength + 50;
-                    length = Math.sqrt(Math.pow((current.x - offsetx), 2)
-                               + Math.pow((current.y - offsety), 2));
-                    next_x = current.x + ((offsetx - current.x) / length)
-                        * 1.99;
-                    next_y = current.y + ((offsety - current.y) / length)
-                        * 1.99;
-                    if (next_x >= 100)
-                        next_x = 100;
-                    if (next_y >= 100)
-                        next_y = 100;
-                    if (next_x < 0)
-                        next_x = 0;
-                    if (next_y < 0)
-                        next_y = 0;
-                    break;
-                } 
-                else {
-                System.out.println("the distance is less than 2");
-                length = Math.sqrt(Math.pow((current.x - 50), 2)
-                           + Math.pow((current.y - 50), 2));
-                next_x = current.x + ((50 - current.x) / length) * 1.98;
-                next_y = current.y + ((50 - current.y) / length) * 1.98;
-                break;
-                }
+                Point dest = chaseCloseTowards(sheeps[i],MIDPOINT,dogs);
+                return this.move_straight(dogs[id-1], dest, MAX_SPEED);
+                // length = Math.sqrt(Math.pow((current.x - sheeps[i].x), 2)
+                //            + Math.pow((current.y - sheeps[i].y), 2));
+                // if (length > 0.5) {
+                //     System.out.printf("here it is dog %d", id);
+                //     System.out.printf("we are chasing sheep %d", i);
+                //     double offsetx;
+                //     double offsety;
+                //     double tmplength;
+                //     tmplength = Math.sqrt(Math.pow((sheeps[i].x - 50), 2)
+                //                   + Math.pow((sheeps[i].y - 50), 2));
+                //     offsetx = (sheeps[i].x - 50) * (1 + tmplength)
+                //         / tmplength + 50;
+                //     offsety = (sheeps[i].y - 50) * (1 + tmplength)
+                //         / tmplength + 50;
+                //     length = Math.sqrt(Math.pow((current.x - offsetx), 2)
+                //                + Math.pow((current.y - offsety), 2));
+                //     next_x = current.x + ((offsetx - current.x) / length)
+                //         * 1.99;
+                //     next_y = current.y + ((offsety - current.y) / length)
+                //         * 1.99;
+                //     if (next_x >= 100)
+                //         next_x = 100;
+                //     if (next_y >= 100)
+                //         next_y = 100;
+                //     if (next_x < 0)
+                //         next_x = 0;
+                //     if (next_y < 0)
+                //         next_y = 0;
+                //     break;
+                // } 
+                // else {
+                // System.out.println("the distance is less than 2");
+                // length = Math.sqrt(Math.pow((current.x - 50), 2)
+                //            + Math.pow((current.y - 50), 2));
+                // next_x = current.x + ((50 - current.x) / length) * 1.98;
+                // next_y = current.y + ((50 - current.y) / length) * 1.98;
+                // break;
+                // }
             }
         }
         if (!target) {
+
+	    Point dest = chaseClosestTowards(sheeps, MIDPOINT,dogs);
+	    dest = chaseClosestTowards(sheeps, MIDPOINT,dogs);
+            if (!isClosestTo(dogs, dest)) {
+                ArrayList<Point> group = getCorrespondingSheep(sheeps);
+                dest = chaseFurthestFromGoal(sheeps, MIDPOINT,dogs);
+                return this.move_straight(dogs[id-1], dest, MAX_SPEED);
+            }
+            return this.move_straight(dogs[id-1], dest, MAX_SPEED);
+	    
+	    /*
             System.out.printf("\nelse idle dog?\n");
             System.out.printf("here it is dog %d", id);
 
@@ -202,6 +232,7 @@ public class Player extends sheepdog.sim.Player {
                 next_y = current.y;
 
             }
+	    */
         }
     }
     current.x = next_x;
@@ -229,6 +260,15 @@ public class Player extends sheepdog.sim.Player {
 	return result;
     }
 
+    public Point getBlackLeftOfGate(Point[] sheeps) {
+	for (int i = 0; i < nblacks; i++) {
+	    if (sheeps[i].x > 50) {
+		return sheeps[i];
+	    }
+	}
+	return null;
+    }
+
     private Point[] updateToNewSheep(Point[] sheeps,Point[] dogs) {
         Sheepdog sheepdog=new Sheepdog(dogs.length, sheeps.length, nblacks, false);
         sheepdog.sheeps=sheeps;
@@ -248,7 +288,7 @@ public class Player extends sheepdog.sim.Player {
             partitions.add(new ArrayList<Point>());
         }
         for (int idx = 0; idx < sheeps.length; idx++) {
-            if (!mode || idx < nblacks) {
+            if ((!mode || idx < nblacks) && sheeps[idx].x >= 50) {
                 Point s = sheeps[idx];
                 for (int i = 0; i < dogs.length; i++) {
                     if (i == dogs.length - 1) {
@@ -293,21 +333,51 @@ public class Player extends sheepdog.sim.Player {
             this.partitions.add(group);
         }
     */
+
+    public int wrap(int x) {
+        if (x >= ndogs) {
+            return x % ndogs;
+        }
+        else {
+            return x;
+        }
+    }
     
 
     public ArrayList<Point> getCorrespondingSheep(Point[] sheep) {
-	if (!partitionOnce) {
-	    return partitions.get(id - 1);
-	}
-	ArrayList<Point> correspondingSheep = new ArrayList<Point>();
-	ArrayList<Integer> sheepIndices = sheepsForDog.get(id - 1);
-	for (int i : sheepIndices) {
-	    correspondingSheep.add(sheep[i]);
-	}
-	return correspondingSheep;
+        ArrayList<Integer> sheepIndices;
+    	ArrayList<Point> correspondingSheep = new ArrayList<Point>();
+        int k = -1;
+        while((correspondingSheep.size() == 0 || allCLoseToFence(correspondingSheep, 10.0)) && k < ndogs) {
+            sheepIndices = sheepsForDog.get(wrap(id + k));
+            correspondingSheep = new ArrayList<Point>();
+            for (int i : sheepIndices) {
+                correspondingSheep.add(sheep[i]);
+            }
+            k++;
+        }
+    	return correspondingSheep;
+    }
+
+    public ArrayList<Point> getCorrespondingSheep(Point[] sheep, double dist) {
+        ArrayList<Integer> sheepIndices;
+        ArrayList<Point> correspondingSheep = new ArrayList<Point>();
+        int k = -1;
+        while((correspondingSheep.size() == 0 || allCLoseToFence(correspondingSheep, dist)) && k < ndogs) {
+            sheepIndices = sheepsForDog.get(wrap(id + k));
+            correspondingSheep = new ArrayList<Point>();
+            for (int i : sheepIndices) {
+                correspondingSheep.add(sheep[i]);
+            }
+            k++;
+        }
+        return correspondingSheep;
     }
 
     public Point many_dogs_strategy(Point[] dogs, Point[] sheeps) {
+        if (allCLoseToFence(sheeps, 7.5)) {
+            state = 9;
+        }
        switch (state) {
         case 0:
             if (isWithinRange(MIDPOINT, 4.0)) {
@@ -343,47 +413,39 @@ public class Player extends sheepdog.sim.Player {
             // dest = chaseClosestTowards(sheeps, MIDPOINT);
             ArrayList<Point> group = getCorrespondingSheep(sheeps);
             // System.out.println("hahaha, group size");
-            System.out.println(group.size());
+            //System.out.println(group.size());
             if (group.size() == 0) {
                 // System.out.println("boom");
                 this.state = 5;
-                System.out.println(this.pos.x + " , " + this.pos.y);
+                //System.out.println(this.pos.x + " , " + this.pos.y);
                 return this.pos;
             }
             if (!useTempDistance && checkIfPast(dogs[id-1], group)) {
                 useTempDistance = true;
             }
-            System.out.println("before the chase Further");
+            //System.out.println("before the chase Further");
             dest = chaseFurthestFromGoal(group, MIDPOINT,dogs);
             if (dest.x == 50 && dest.y == 50) {
                 this.state = 5;
                 return this.pos;
             }
-            if (id == 3) {
-                System.out.println("dest y: " + dest.x);
-                System.out.println("dest x: " + dest.y);
-            }
-            System.out.println("after the chase Further");
+            //System.out.println("after the chase Further");
             if (distanceFrom(MIDPOINT) < 3 && movedPastThresholdDistance) {
                 this.state = 6;
-                System.out.println("boom");
+                //System.out.println("boom");
                 return this.move_straight(dogs[id-1], dest, MAX_SPEED);
             }
-            System.out.println("before the state 4 return");
+            //System.out.println("before the state 4 return");
             return this.move_straight(dogs[id-1], dest, MAX_SPEED);
         case 5:
-            dest = chaseClosestTowards(sheeps, MIDPOINT,dogs);
-            if (distanceFrom(MIDPOINT) < 3) {
-                this.state = 6;
-            }
-            if (!isClosestTo(dogs, dest)) {
+            group = getCorrespondingSheep(sheeps);
+            dest = chaseClosestTowards(group, MIDPOINT,dogs);
+            //if (distanceFrom(MIDPOINT) < 3) {
+                // this.state = 6;
+            //}
+            if (group.size() == 0 || !isClosestTo(dogs, dest)) {
                 group = getCorrespondingSheep(sheeps);
-                if (group.size() != 0) {
-                    this.state = 4;
-                }
-                else {
-                    this.state = 8;
-                }
+                this.state = 8;
                 dest = chaseFurthestFromGoal(sheeps, MIDPOINT,dogs);
                 return this.move_straight(dogs[id-1], dest, MAX_SPEED);
             }
@@ -405,8 +467,31 @@ public class Player extends sheepdog.sim.Player {
                 this.state = 5;
             }
             return this.move_straight(dogs[id-1], dest, MAX_SPEED);
+        case 9:
+            sheepsForDog = new ArrayList<ArrayList<Integer>>();
+            for (int i = 0; i < dogs.length; i++) {
+            sheepsForDog.add(new ArrayList<Integer>());
+            }
+            this.partitions = new ArrayList<ArrayList<Point>>();
+            for (int i = 0; i < dogs.length; i++) {
+            //System.out.println(sheepsForDog.get(i).size());
+            }
+            createPartitions(dogs, sheeps);
+
+            ArrayList<Integer> sheepIndices = sheepsForDog.get(id-1);
+            group = new ArrayList<Point>();
+            for (int i : sheepIndices) {
+                group.add(sheeps[i]);
+            }
+            if (group.size() == 0) {
+                dest = chaseFurthestFromGoal(sheeps, MIDPOINT,dogs);
+                return this.move_straight(dogs[id-1], dest, MAX_SPEED);
+            }
+            dest = chaseFurthestFromGoal(group, MIDPOINT,dogs);
+            return this.move_straight(dogs[id-1], dest, MAX_SPEED);
 
         }
+
        return dogs[id-1];
     }
 
@@ -419,6 +504,8 @@ public class Player extends sheepdog.sim.Player {
         }
         return count;
     }
+
+
 
     public boolean isClosestTo(Point[] dogs, Point dest) {
         double closest_dist = 200;
@@ -441,7 +528,7 @@ public class Player extends sheepdog.sim.Player {
 
     public boolean checkIfPast(Point dog, ArrayList<Point> sheeps) {
     for (Point s : sheeps) {
-        if (s.x > dog.x) {
+        if (distanceBetween(s, MIDPOINT) > distanceFrom(MIDPOINT)) {
             return false;
         }
     }
@@ -460,15 +547,20 @@ public class Player extends sheepdog.sim.Player {
 
     public Point chaseFurthestFromGoal(ArrayList<Point>sheeps, Point dest, Point[] dogs) {
         double tmpdis;
-        double furthest_dist = 0;
+        double furthest_dist = -100;
         Point furthest_sheep = dest;
         double dist_to;
         Point current = dogs[id-1];
         boolean sheepOnRightSide = false;
         for (Point sheep : sheeps) {
-            tmpdis = distanceBetween(sheep,current);
-            dist_to = distanceBetween(sheep, dest);
-            if (dist_to >= furthest_dist && !(sheep.x < 50.0) && (tmpdis < 10 || !useTempDistance)) {
+            //tmpdis = ;
+            if (!useTempDistance) {
+                dist_to = distanceBetween(sheep, dest);
+            }
+            else {
+                dist_to = 1.0*distanceBetween(sheep, dest) - 0.8*distanceBetween(sheep,current);
+            }
+            if (dist_to >= furthest_dist && !(sheep.x < 50.0)) {
                 furthest_dist = dist_to;
                 furthest_sheep = sheep;
             }
@@ -482,9 +574,9 @@ public class Player extends sheepdog.sim.Player {
     }
 
     public Point chaseClosestTowards(ArrayList<Point> sheeps, Point dest, Point[] dogs) {
-	Point[] sheepsArray = new Point[sheeps.size()];
-	sheepsArray = sheeps.toArray(sheepsArray);
-	return chaseClosestTowards(sheepsArray, dest, dogs);
+    	Point[] sheepsArray = new Point[sheeps.size()];
+    	sheepsArray = sheeps.toArray(sheepsArray);
+    	return chaseClosestTowards(sheepsArray, dest, dogs);
     }
 
     public Point chaseClosestTowards(Point[] sheeps, Point dest, Point[] dogs) {
@@ -494,14 +586,39 @@ public class Player extends sheepdog.sim.Player {
         for (int i=0; i<sheeps.length; i++) {
             if (!mode || i < nblacks) {
                 dist_to = distanceFrom(sheeps[i]);
-                if (dist_to <= closest_dist && !(sheeps[i].x < 50.0)) {
+                if (dist_to <= closest_dist && !(sheeps[i].x < 45.0)) {
                     closest_dist = dist_to;
                     closest_idx = i;
                 }
             }
         }
-        Point closestSheep = sheeps[closest_idx];
-        return chaseTowards(closestSheep, dest, dogs);
+        if (closest_idx != 0) {
+            Point closestSheep = sheeps[closest_idx];
+            return chaseTowards(closestSheep, dest, dogs);
+        } 
+        else {
+            return chaseFurthestFromGoal(sheeps, dest, dogs);
+        }
+    }
+
+    public Point chaseCloseTowards(Point sheep, Point dest, Point[] dogs) {
+        Vector dir = new Vector(sheep, dest);
+
+        // handle case that sheep is very close to fence
+        // we use the wall to our benefit
+        if (distanceFromBorder(sheep) < 0.5) {
+            Vector temp = dir.get_unit();
+            temp.times(0.01);
+            temp.plus(sheep);
+            return temp.toPoint();
+        }
+        else {
+            dir.reverse();
+            Vector temp = dir.get_unit();
+            temp.times(0.01);
+            temp.plus(sheep);
+            return temp.toPoint(); 
+        }
     }
 
     public Point chaseTowards(Point sheep, Point dest, Point[] dogs) {
@@ -527,7 +644,7 @@ public class Player extends sheepdog.sim.Player {
         else {
             dir.reverse();
             Vector temp = dir.get_unit();
-            temp.times(1.9);
+            temp.times(0.5);
             temp.plus(sheep);
             return temp.toPoint(); 
         }
@@ -608,10 +725,10 @@ public class Player extends sheepdog.sim.Player {
             else {
                 speed = speed - 0.1;
             }
-            System.out.println("stage while");
+            //System.out.println("stage while");
         }
         if (speed <= 0.1) {
-            System.out.println("if speed<0.1");
+            //System.out.println("if speed<0.1");
             Point p = dir.toPoint();
             if (p.y < 0.0)
                 return new Point(p.x, 0.0);
@@ -625,9 +742,9 @@ public class Player extends sheepdog.sim.Player {
                 return new Point(50, p.y);
         }
         else {
-            System.out.println("the end else");
-            System.out.printf("x is %f",dir.toPoint().x);
-            System.out.printf("y is %f", dir.toPoint().y);
+            //System.out.println("the end else");
+            //System.out.printf("x is %f",dir.toPoint().x);
+            //System.out.printf("y is %f", dir.toPoint().y);
            return dir.toPoint(); 
         }   
     }
@@ -655,6 +772,31 @@ public class Player extends sheepdog.sim.Player {
         for (int i=0; i<points.length; i++) {
             Vector trayectory = new Vector(dogs[i], points[i]);
             if (trayectory.magnitude() >= range) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean allCLoseToFence(Point[] sheeps, double range) {
+        for (int i=0; i<sheeps.length; i++) {
+            Point sheep = sheeps[i];
+            Vector trayectory = new Vector(MIDPOINT, sheep);
+            //System.out.println("bam! " + trayectory.magnitude());
+            if (trayectory.magnitude() >= range) {
+                //System.out.println("bam! " + trayectory.magnitude());
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean allCLoseToFence(ArrayList<Point> sheeps, double range) {
+        for (Point sheep : sheeps) {
+            Vector trayectory = new Vector(MIDPOINT, sheep);
+            //System.out.println("bam! " + trayectory.magnitude());
+            if (trayectory.magnitude() >= range) {
+                //System.out.println("bam! " + trayectory.magnitude());
                 return false;
             }
         }
@@ -691,7 +833,7 @@ public class Player extends sheepdog.sim.Player {
         if (y3 >= OPEN_LEFT && y3 <= OPEN_RIGHT)
             return false;
         else{
-            System.out.println("fence");
+            //System.out.println("fence");
             return true;
         }
     }

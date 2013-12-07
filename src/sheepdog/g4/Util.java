@@ -91,8 +91,8 @@ public class Util {
                         assign[j++]=sorted_sheep[i];
                 }
 
-				if (id == dog_count)
-					System.out.println("TOTAL SHEEP ARE: " + sorted_sheep.length);
+				/*if (id == dog_count)
+					System.out.println("TOTAL SHEEP ARE: " + sorted_sheep.length);*/
 
                 return assign;
         }
@@ -140,8 +140,8 @@ public class Util {
                 assign[j++] = sorted_sheep[i];
         }
 
-	if (id == dog_count)
-		System.out.println("TOTAL SHEEP ARE: " + sorted_sheep.length);
+	/*if (id == dog_count)
+		System.out.println("TOTAL SHEEP ARE: " + sorted_sheep.length);*/
 
         return assign;
 }	
@@ -288,7 +288,7 @@ public class Util {
 			if(sheeps[i].x<50.0){
 
 				othersheep.add(sheeps[i]);
-				System.out.println("Sheep " + i + " is on other side");
+				//System.out.println("Sheep " + i + " is on other side");
 
 			}
 	

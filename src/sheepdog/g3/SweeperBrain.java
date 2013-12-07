@@ -9,10 +9,10 @@ public class SweeperBrain extends DogBrain{
 	
 	boolean movementToggle = false;
 //	int DOG_GAP = 4;
-	static boolean dogsAtEnd = false; 
+	boolean dogsAtEnd = false; 
 	protected static final Point GAP = new Point(50, 50);
 	double DOG_SHEEP_MIN_DIST = 0.2;
-	int SWEEP_TILL_X = 52;
+	protected static final int SWEEP_TILL_X = 52;
 	int UPPER_LOWER_X = 51;
 	
 	public SweeperBrain(int id, boolean advanced, int nblacks) {
@@ -30,8 +30,26 @@ public class SweeperBrain extends DogBrain{
             return Calculator.getMoveTowardPoint(me, GAP);
         }
 //        System.out.println("**************************************Position of last dog: "+dogs[dogs.length-1]);
+        dogsAtEnd = true;
+        for(int i=0;i<dogs.length-1;i++)
+		{
+			if(dogs[i].x < SWEEP_TILL_X || (dogs[i].x != dogs[i+1].x))
+				dogsAtEnd = false;
+		}
         
-        Player.sweeperComplete = sweeperComplete(dogs);
+        if(!dogsAtEnd)
+        {
+        	boolean flag = true;
+	        for(int i=1;i<dogs.length-1;i++)
+	        {
+	        	if(dogs[i].x!=SWEEP_TILL_X)
+	        		flag = false;    		
+	        }
+	        if(flag)
+	        	dogsAtEnd = true;
+        }
+        
+//        Player.sweeperComplete = sweeperComplete(dogs);
         
         if(dogsAtEnd && me.x>SWEEP_TILL_X)
         {
@@ -41,10 +59,16 @@ public class SweeperBrain extends DogBrain{
         	if(!movementToggle)
         	{
         		movementToggle = !movementToggle;
-        		return Calculator.getMoveTowardPoint(me, new Point(rightMost+DOG_SHEEP_MIN_DIST, me.y));
+        		Point newPosition = new Point(rightMost+DOG_SHEEP_MIN_DIST, me.y);
+        		if(newPosition.x<SWEEP_TILL_X)
+        			newPosition.x = SWEEP_TILL_X;
+        		return Calculator.getMoveTowardPoint(me, newPosition);
         	}
         	movementToggle = !movementToggle;
-        	return Calculator.getMoveTowardPoint(me, new Point(me.x-0.5, me.y));
+        	Point newPosition = new Point(me.x-0.5, me.y);
+        	if(newPosition.x<SWEEP_TILL_X)
+    			newPosition.x = SWEEP_TILL_X;
+        	return Calculator.getMoveTowardPoint(me, newPosition);
         }
         else if(mId !=0 && mId != dogs.length - 1 && dogsAtEnd)
         {
@@ -68,11 +92,11 @@ public class SweeperBrain extends DogBrain{
        		return Calculator.getMoveTowardPoint(me, new Point(UPPER_LOWER_X, newY));
         }
         
-        if(dogs[dogs.length-1].x==100 && dogs[dogs.length-1].y==100 && !dogsAtEnd)
-        {
-//        	System.out.println("Last dog reached");
-        	dogsAtEnd = true;
-        }
+//        if(dogs[dogs.length-1].x==100 && dogs[dogs.length-1].y==100 && !dogsAtEnd)
+//        {
+////        	System.out.println("Last dog reached");
+//        	dogsAtEnd = true;
+//        }
         return Calculator.getMoveTowardPoint(me, new Point(100, (double)mId * 100 / (dogs.length-1)));
         
 	}
@@ -81,7 +105,7 @@ public class SweeperBrain extends DogBrain{
 	public Point getAdvancedMove(Point[] dogs, Point[] whiteSheep,
 			Point[] blackSheep) {
 		// TODO Auto-generated method stub
-		return null;
+		return getBasicMove(dogs, blackSheep);
 	}
 	
 	double calculateRightMostSheep(Point[] sheep)
@@ -120,10 +144,5 @@ public class SweeperBrain extends DogBrain{
 		}
 		return highestY;
 	}
-	
-	boolean sweeperComplete(Point [] dogs) {
-		if (dogs[0].y >= 47.5 && dogs[dogs.length - 1].y <= 52.5 && dogsAtEnd)
-			return true;
-		return false;
-	}
+
 }

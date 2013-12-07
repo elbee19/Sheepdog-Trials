@@ -5,7 +5,6 @@ import java.util.LinkedList;
 public class Player extends sheepdog.sim.Player {
     private LinkedList<Strategy> strategyStack;
     private boolean strategyInit;
-
     public void init(int nblacks, boolean mode) {
         Global.nblacks = nblacks;
         Global.mode = mode;
@@ -30,20 +29,49 @@ public class Player extends sheepdog.sim.Player {
 
         if (!strategyInit) {
             // condition to use strategy should be put here
+            /*
             double fetchEst = Fetch.estimate(dogs, sheeps);
             double sweepEst = Sweep.estimate(dogs, sheeps);
-            System.out.println(fetchEst + " " + sweepEst);
+            double treeEst = Tree.estimate(dogs, sheeps);
+            System.out.println(fetchEst + " " + sweepEst + " " + treeEst);
+
             if (Global.mode) {
-                double inverseFetchEst = fetchEst / Global.nblacks * (sheeps.length - Global.nblacks);
-                if (fetchEst > sweepEst + inverseFetchEst) {
+                double inverseFetchEst = fetchEst / Global.nblacks * (sheeps.length - Global.nblacks) / 5;
+
+                double fetchEst2 = fetchEst;
+                double sweepEst2 = sweepEst + inverseFetchEst;
+                double treeEst2 = treeEst + inverseFetchEst;
+
+                if (sweepEst2 < fetchEst2 && sweepEst2 < treeEst2) {
                     Sweep sweep = new Sweep (id, strategyStack);
                     strategyStack.push(sweep);
+                } else if (treeEst2 < fetchEst2 && treeEst2 < sweepEst2) {
+                    Tree t = new Tree(id, strategyStack);
+                    strategyStack.push(t);
+                }
+            } else {
+                if (sweepEst < fetchEst && sweepEst < treeEst) {
+                    Sweep sweep = new Sweep (id, strategyStack);
+                    strategyStack.push(sweep);
+                } else if (treeEst < fetchEst && treeEst < sweepEst) {
+                    Tree t = new Tree(id, strategyStack);
+                    strategyStack.push(t);
                 }
             }
-            else {
-                if (fetchEst > sweepEst) {
-                    Sweep sweep = new Sweep (id, strategyStack);
-                    strategyStack.push(sweep);
+            */
+            if (Global.mode) {
+                double dog_over_sheep = (double)dogs.length / (double)Global.nblacks;
+                //System.out.println( "dog_over_sheep = " + dog_over_sheep );
+                if (dog_over_sheep <= 2) {
+                    Tree t = new Tree(id, strategyStack);
+                    strategyStack.push(t);
+                }
+            } else {
+                double dog_over_sheep = (double)dogs.length / (double)sheeps.length;
+                //System.out.println( "dog_over_sheep = " + dog_over_sheep );
+                if (dog_over_sheep <= 2) {
+                    Tree t = new Tree(id, strategyStack);
+                    strategyStack.push(t);
                 }
             }
             strategyInit = true;
@@ -59,9 +87,9 @@ public class Player extends sheepdog.sim.Player {
         }
 
         Point moveTo;
-        Strategy currentStrategy = strategyStack.getLast();
+        Strategy currentStrategy = strategyStack.getFirst();
         moveTo = currentStrategy.move(dogs, sheeps);
-        System.out.println(currentStrategy.toString());
+        //System.out.println(currentStrategy.toString());
         return moveTo.toSimPoint();
     }
 }

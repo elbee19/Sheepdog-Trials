@@ -88,6 +88,6 @@ public abstract class StraightLineBrain extends sheepdog.g3.DogBrain{
         int chosenSheepIndex = chooseSheep(dogs, sheeps, undeliveredIndices);
         
         Point targetSheep = sheeps[chosenSheepIndex];
-        return forceSheepToMove(targetSheep, me);
+        return forceSheepToMove(targetSheep, me, dogs, sheeps);
     }
 }
